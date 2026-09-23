@@ -1,0 +1,33 @@
+category: duplicate_id_fixture
+description: fixture for `copilot rules validate` -- two controls sharing one id.
+
+controls:
+  - id: DUPID-001
+    name: First control
+    severity: low
+    applies_to: {}
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'first_pattern'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: n/a
+
+  - id: DUPID-001
+    name: Second control with the same id
+    severity: low
+    applies_to: {}
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'second_pattern'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: n/a

@@ -1,0 +1,120 @@
+category: rate_limiting
+description: >
+  Checks whether the application limits request rate at all, whether it sets
+  a global default, and whether the endpoints that actually get attacked --
+  login, registration, password reset, token issue -- carry a limit of their
+  own.
+
+controls:
+  - id: RATE-001
+    name: Rate limiting middleware registered
+    severity: high
+    cwe: CWE-770
+    owasp: A04:2021
+    description: >
+      Some rate limiting component is installed and wired into the app.
+    rationale: >
+      This is the cheapest possible check and it fails on most generated
+      applications. Without it, every other rate limiting control is moot.
+    applies_to:
+      index_buckets: [source, config]
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bLimiter\s*\('
+          - '\bflask[_-]limiter\b|from\s+flask_limiter\b'
+          - '\bslowapi\b|SlowAPIMiddleware'
+          - 'express-rate-limit|\brateLimit\s*\(|\brateLimiter\b'
+          - '\bRateLimiter\b|\bThrottle\b|@Throttle\b'
+          - 'django[_-]ratelimit|@ratelimit\b'
+          - 'DEFAULT_THROTTLE_RATES|throttle_classes'
+          - '\bbottleneck\b|\bexpress-slow-down\b'
+    verdict:
+      found: present
+      not_found: absent
+    remediation_hint: >
+      Install and register a limiter for the framework in use -- flask-limiter,
+      slowapi for FastAPI, express-rate-limit for Express, or DRF's throttle
+      classes -- and back it with a shared store (Redis) if you run more than
+      one process, otherwise each worker counts separately.
+
+  - id: RATE-002
+    name: Credential endpoints rate limited
+    severity: high
+    cwe: CWE-307
+    owasp: A07:2021
+    description: >
+      Login, registration, password reset and token endpoints should carry an
+      explicit, tighter limit.
+    rationale: >
+      These are where credential stuffing and password spraying land. A global
+      default sized for normal browsing is far too generous for them, so they
+      need a limit of their own even when a default exists.
+    applies_to:
+      index_buckets: [routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: credential endpoint
+        flags: [ignorecase]
+        pattern: '(?:@(?:app|router|bp|api|[A-Za-z_]\w*_bp)\.(?:route|post|get|put)|(?:app|router|api)\.(?:post|get|put))\s*\(\s*["''`][^"''`]*(?:login|signin|sign-in|log-in|register|signup|sign-up|password[/_-]?reset|reset[/_-]?password|forgot[/_-]?password|token|authenticate|otp|verify[/_-]?code|magic[/_-]?link)'
+      guard:
+        type: regex
+        description: rate limited
+        proximity_lines: 4
+        proximity_lines_below: 4
+        stop_at: '^\s*$'
+        any_of:
+          - '@limiter\.limit\s*\(|@limiter\.shared_limit\s*\('
+          - '@ratelimit\s*\(|@rate_limit\s*\(|@Throttle\s*\('
+          - '\b(?:rateLimit|rateLimiter|loginLimiter|authLimiter|speedLimiter|strictLimiter)\b'
+          - 'throttle_classes\s*=|throttle_scope\s*='
+          - '\blimiter\b\s*,'
+          - 'Depends\s*\(\s*RateLimiter'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Put a tight, explicit limit on each credential endpoint -- on the order
+      of a handful of attempts per minute per IP and per account -- separate
+      from whatever global default the app uses. Count failures, not requests,
+      and prefer a shared store so the limit survives a restart.
+
+  - id: RATE-003
+    name: Global default limit configured
+    severity: medium
+    cwe: CWE-770
+    owasp: A04:2021
+    description: >
+      A limiter with no default only protects the routes someone remembered
+      to decorate. A default protects the ones they did not.
+    applies_to:
+      index_buckets: [source, config]
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'default_limits\s*='
+          - 'DEFAULT_LIMITS|DEFAULT_THROTTLE_RATES'
+          - 'app\.use\s*\(\s*(?:limiter|rateLimit|rateLimiter)'
+          - 'app\.add_middleware\s*\(\s*SlowAPIMiddleware'
+          - 'windowMs\s*:'
+          - 'application_limits\s*='
+    verdict:
+      found: present
+      not_found: absent
+    remediation_hint: >
+      Configure a default limit on the limiter itself and apply it as
+      middleware, so a new route is limited the moment it is added rather
+      than when someone remembers to decorate it.

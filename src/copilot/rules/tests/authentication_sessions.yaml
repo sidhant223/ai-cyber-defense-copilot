@@ -1,0 +1,203 @@
+# Executable examples for authentication_sessions.yaml. See
+# authentication.yaml in this directory for what these are and how they run.
+
+AUTH-008:
+  - name: Flask session with CSRFProtect
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask, session
+        from flask_wtf.csrf import CSRFProtect
+        app = Flask(__name__)
+        CSRFProtect(app)
+
+        def current_user():
+            return session["user_id"]
+
+  - name: Django keeps the CSRF middleware
+    expect: present
+    files:
+      requirements.txt: |
+        django==5.0.6
+      blogsite/settings.py: |
+        MIDDLEWARE = [
+            "django.middleware.security.SecurityMiddleware",
+            "django.contrib.sessions.middleware.SessionMiddleware",
+            "django.middleware.csrf.CsrfViewMiddleware",
+            "django.contrib.auth.middleware.AuthenticationMiddleware",
+        ]
+        SESSION_COOKIE_SECURE = True
+
+  - name: cookie session with no CSRF defence
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, session
+        app = Flask(__name__)
+        app.secret_key = "dev"
+
+        @app.route("/notes", methods=["POST"])
+        def create():
+            return {"owner": session["user_id"]}
+
+  - name: express-session with no CSRF defence
+    expect: absent
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2", "express-session": "^1.18.0"}}
+      server.js: |
+        const express = require("express");
+        const session = require("express-session");
+        const app = express();
+        app.use(session({ secret: process.env.SESSION_SECRET, cookie: { sameSite: "strict" } }));
+
+  - name: bearer token API has no cookie to protect
+    expect: not_applicable
+    files:
+      main.py: |
+        from fastapi import Depends, FastAPI
+        app = FastAPI()
+
+        @app.get("/tasks")
+        def tasks(user = Depends(get_current_user)):
+            return []
+
+AUTH-009:
+  - name: expiry claim in the payload
+    expect: present
+    files:
+      auth.py: |
+        from datetime import datetime, timedelta, timezone
+        import jwt
+
+        def issue(sub: str) -> str:
+            payload = {
+                "sub": sub,
+                "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+            }
+            return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+  - name: expiresIn option on the signing call
+    expect: present
+    files:
+      package.json: |
+        {"dependencies": {"jsonwebtoken": "^9.0.2"}}
+      auth.js: |
+        const jwt = require("jsonwebtoken");
+
+        function issue(user) {
+          return jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: "15m" });
+        }
+
+  - name: token signed with no expiry
+    expect: absent
+    files:
+      package.json: |
+        {"dependencies": {"jsonwebtoken": "^9.0.2"}}
+      auth.js: |
+        const jwt = require("jsonwebtoken");
+
+        function issue(user) {
+          return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET);
+        }
+
+  - name: one of two issuing sites sets an expiry
+    expect: partial
+    files:
+      auth.py: |
+        from datetime import datetime, timedelta, timezone
+        import jwt
+
+        def access_token(sub: str) -> str:
+            payload = {"sub": sub, "exp": datetime.now(timezone.utc) + timedelta(minutes=15)}
+            return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+        def api_token(sub: str) -> str:
+            return jwt.encode({"sub": sub, "scope": "api"}, SECRET_KEY, algorithm="HS256")
+
+  - name: app that issues no tokens
+    expect: not_applicable
+    files:
+      auth.py: |
+        import jwt
+
+        def read(token: str):
+            return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+
+AUTH-010:
+  - name: minimum length on the request schema
+    expect: present
+    files:
+      main.py: |
+        from fastapi import FastAPI
+        from pydantic import BaseModel, Field
+        app = FastAPI()
+
+        class Signup(BaseModel):
+            email: str
+            password: str = Field(min_length=12, max_length=128)
+
+        @app.post("/register")
+        def register(body: Signup):
+            return {"email": body.email}
+
+  - name: zod minimum in the route module
+    expect: present
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2", "zod": "^3.23.8"}}
+      routes/auth.js: |
+        const express = require("express");
+        const { z } = require("zod");
+        const router = express.Router();
+
+        const credentials = z.object({
+          email: z.string().email(),
+          password: z.string().min(12).max(128),
+        });
+
+        router.post("/register", (req, res) => {
+          const body = credentials.parse(req.body);
+          res.json({ email: body.email });
+        });
+
+  - name: registration with no password policy
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, request
+        from werkzeug.security import generate_password_hash
+        app = Flask(__name__)
+
+        @app.route("/register", methods=["POST"])
+        def register():
+            digest = generate_password_hash(request.form["password"])
+            return {"stored": bool(digest)}
+
+  # The check is there and does not count: the guard's none_of rejects a
+  # minimum below the ASVS floor of eight characters.
+  - name: minimum too short to be a policy
+    expect: absent
+    files:
+      main.py: |
+        from fastapi import FastAPI
+        from pydantic import BaseModel, Field
+        app = FastAPI()
+
+        class Signup(BaseModel):
+            password: str = Field(min_length=4)
+
+        @app.post("/register")
+        def register(body: Signup):
+            return {"ok": True}
+
+  - name: app where no endpoint sets a password
+    expect: not_applicable
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @app.route("/notes")
+        def notes():
+            return []

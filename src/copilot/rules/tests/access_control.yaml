@@ -1,0 +1,162 @@
+# Executable examples for access_control.yaml. See authentication.yaml in
+# this directory for what these are and how they run.
+
+AC-001:
+  - name: CORS(app) allows every origin by default
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask
+        from flask_cors import CORS
+        app = Flask(__name__)
+        CORS(app)
+
+  - name: origins named explicitly
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask
+        from flask_cors import CORS
+        app = Flask(__name__)
+        CORS(app, origins=["https://notes.example.com"])
+
+AC-002:
+  - name: debug left on
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        if __name__ == "__main__":
+            app.run(debug=True)
+
+  - name: debug driven from the environment
+    expect: present
+    files:
+      app.py: |
+        import os
+        from flask import Flask
+        app = Flask(__name__)
+
+        if __name__ == "__main__":
+            app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
+
+AC-003:
+  - name: headers set by middleware
+    expect: present
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2", "helmet": "^7.1.0"}}
+      server.js: |
+        const express = require("express");
+        const helmet = require("helmet");
+        const app = express();
+        app.use(helmet());
+
+  - name: no security headers anywhere
+    expect: absent
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2"}}
+      server.js: |
+        const express = require("express");
+        const app = express();
+        app.get("/notes", listNotes);
+
+AC-004:
+  - name: admin route behind a role check
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @admin_required
+        @app.route("/admin/users")
+        def admin_users():
+            return []
+
+  - name: admin route behind authentication only
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @login_required
+        @app.route("/admin/users")
+        def admin_users():
+            return []
+
+  - name: no administrative route
+    expect: not_applicable
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @app.route("/notes")
+        def notes():
+            return []
+
+AC-006:
+  - name: error handler returns the stack trace
+    expect: absent
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2"}}
+      app.js: |
+        const express = require("express");
+        const app = express();
+
+        app.use((err, req, res, next) => {
+          res.status(500).json({ error: err.message, stack: err.stack });
+        });
+
+  - name: exception logged, generic message returned
+    expect: present
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2"}}
+      app.js: |
+        const express = require("express");
+        const app = express();
+
+        app.use((err, req, res, next) => {
+          console.error(err.stack);
+          res.status(500).json({ error: "internal error", id: req.id });
+        });
+
+  - name: FastAPI handler putting the exception in the response detail
+    expect: absent
+    files:
+      main.py: |
+        from fastapi import FastAPI, HTTPException
+        app = FastAPI()
+
+        @app.get("/books/{book_id}")
+        def get_book(book_id: int):
+            try:
+                return load(book_id)
+            except LookupError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+
+AC-005:
+  - name: wildcard host allowlist
+    expect: absent
+    files:
+      requirements.txt: |
+        django==5.0.6
+      blogsite/settings.py: |
+        DEBUG = False
+        ALLOWED_HOSTS = ["*"]
+
+  - name: hosts named explicitly
+    expect: present
+    files:
+      requirements.txt: |
+        django==5.0.6
+      blogsite/settings.py: |
+        DEBUG = False
+        ALLOWED_HOSTS = ["blog.example.com"]

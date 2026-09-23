@@ -1,0 +1,183 @@
+category: input_validation
+description: >
+  Checks whether data crossing the trust boundary is constrained before use:
+  request bodies against a schema, database queries by parameterisation, file
+  uploads by type and size, and shell execution by not happening at all.
+
+controls:
+  - id: INPUT-001
+    name: Request body validated against a schema
+    severity: high
+    cwe: CWE-20
+    owasp: A03:2021
+    description: >
+      A handler that reads a request body should hand it to a schema rather
+      than index into it directly.
+    rationale: >
+      Reading request.json()["amount"] and using it is the shape of most
+      mass-assignment and type-confusion bugs. A schema turns a whole class
+      of them into a 422.
+    applies_to:
+      index_buckets: [routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.test.ts"
+        - "**/*.spec.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: raw request body read
+        pattern: '\b(?:request\.get_json\s*\(|request\.json\b|request\.form\b|request\.data\b|request\.args\b|request\.POST\b|request\.GET\b|request\.query_params\b|req\.body\b|req\.query\b|req\.params\b|await\s+request\.json\s*\(|await\s+req\.json\s*\()'
+      guard:
+        type: regex
+        description: validated against a schema
+        scope: file
+        any_of:
+          - '\b(?:BaseModel|TypeAdapter|model_validate|parse_obj|parse_raw)\b'
+          - '\b(?:Schema|SchemaMeta|marshmallow|fields\.[A-Z])\b'
+          - '\b(?:serializer|Serializer)\b'
+          - '\b(?:joi|Joi|zod|z\.object|yup|celery_schema)\b'
+          - '\bvalidationResult\s*\(|\bcheckSchema\s*\(|\bbody\s*\(\s*["'']'
+          - '\b(?:validate|validator|is_valid|isValid|assertValid)\s*\('
+          - '@validate_(?:request|schema|json)'
+          - '\bexpress-validator\b'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Declare the expected shape once and let the framework reject anything
+      else: a Pydantic model as a typed handler parameter, a marshmallow or
+      DRF serializer, or a zod/Joi schema checked before the handler body
+      runs. Reject unknown fields explicitly rather than ignoring them.
+
+  - id: INPUT-002
+    name: Database queries are parameterised
+    severity: critical
+    cwe: CWE-89
+    owasp: A03:2021
+    description: >
+      SQL should be a constant string with placeholders. Any query assembled
+      by interpolation or concatenation is a candidate for injection.
+    applies_to:
+      index_buckets: [source]
+      exclude_patterns:
+        - "**/migrations/**"
+        - "**/tests/**"
+        - "**/test_*.py"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: SQL statement in source
+        flags: [ignorecase]
+        # Each alternative carries its own right-hand boundary. A single
+        # trailing \b cannot work here: after SELECT\s+[\w*] the next
+        # character is another word character or a space, so the boundary
+        # never holds and every SELECT is missed.
+        pattern: '["''`][^"''`]*\bSELECT\s+[\w*(]|["''`][^"''`]*\bINSERT\s+INTO\s|["''`][^"''`]*\bUPDATE\s+\w+\s+SET\s|["''`][^"''`]*\bDELETE\s+FROM\s'
+      guard:
+        # Inverted guard: the query is safe when NO interpolation marker sits
+        # on the same line. This is how the engine expresses "parameterised"
+        # without needing to understand SQL.
+        type: regex
+        mode: forbid
+        scope: same_line
+        description: parameterised
+        any_of:
+          - '\bf["'']'
+          - '["'']\s*\+\s*\w'
+          - '\w\s*\+\s*["'']'
+          - '["'']\s*%\s*[\(\w\[]'
+          - '\.format\s*\('
+          - '\$\{[^}]+\}'
+          - '["'']\s*\.\s*\$'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Pass values as query parameters, not as parts of the query string:
+      cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,)) rather
+      than an f-string. Table and column names cannot be parameterised, so
+      map them through an allowlist instead of interpolating.
+
+  - id: INPUT-003
+    name: File uploads restricted by type and size
+    severity: high
+    cwe: CWE-434
+    owasp: A04:2021
+    description: >
+      An upload endpoint should constrain both what may be uploaded and how
+      much of it.
+    applies_to:
+      index_buckets: [source, routes]
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: file upload handler
+        pattern: '\b(?:request\.files\b|UploadFile\b|multer\s*\(|req\.files?\b|FileField\s*\(|\.save\s*\(\s*os\.path\.join)'
+      guard:
+        type: regex
+        description: constrained by type and size
+        scope: file
+        any_of:
+          - 'MAX_CONTENT_LENGTH'
+          - 'ALLOWED_EXTENSIONS|allowed_extensions|ALLOWED_MIME|allowed_types'
+          - '\bcontent_type\b|\bmimetype\b|\bmime_type\b'
+          - '\blimits\s*:\s*\{|\bfileSize\b|\bfileFilter\b'
+          - '\bsecure_filename\s*\('
+          - '\bMAX_UPLOAD|MAX_FILE_SIZE|max_length\b'
+          - '\.(?:endswith|splitext)\s*\('
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Cap the request size at the framework level, allowlist the extensions
+      and content types you accept, and write the file under a name you
+      generate rather than the one the client supplied.
+
+  - id: INPUT-004
+    name: No shell execution on request-derived input
+    severity: critical
+    cwe: CWE-78
+    owasp: A03:2021
+    description: >
+      Handing a string to a shell, or to eval, removes every boundary the
+      rest of the validation is trying to hold.
+    applies_to:
+      index_buckets: [source]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/scripts/**"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bos\.system\s*\('
+          - '\bos\.popen\s*\('
+          - 'subprocess\.(?:run|call|check_output|check_call|Popen)\s*\([^)]*shell\s*=\s*True'
+          - '\bchild_process\.exec\s*\(|\bexec\s*\(\s*`'
+          - '(?<![\w.])eval\s*\(\s*(?:request|req|input|params|body|query)'
+          - '\bpickle\.loads\s*\(|\byaml\.load\s*\((?![^)]*Loader)'
+          - '\bnew\s+Function\s*\('
+        none_of:
+          - '#\s*nosec|//\s*nosec|noqa'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Call the program directly with an argument list and shell=False, so the
+      shell never parses user data. Replace eval and pickle with a parser that
+      only accepts the data you expect: json.loads, or yaml.safe_load.

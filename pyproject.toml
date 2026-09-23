@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-cyber-defense-copilot"
+version = "0.1.0"
+description = "Static analysis tool that reports which security controls are ABSENT from a codebase."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "pyyaml>=6.0",
+    "rich>=13.0",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+# The web UI is a presentation layer over the same pipeline the CLI calls.
+# It is optional so the scanner itself stays a stdlib-first dependency set.
+web = ["streamlit>=1.30"]
+
+[project.scripts]
+copilot = "copilot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# rules/tests/*.yaml ships too: `copilot rules test` is part of the tool, not
+# part of its development, and an installed copy that cannot run a control's
+# examples cannot check that its own rules still work.
+copilot = ["rules/*.yaml", "rules/tests/*.yaml", "reporter/templates/*.j2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

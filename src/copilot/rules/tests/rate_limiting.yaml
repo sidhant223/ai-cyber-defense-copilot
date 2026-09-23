@@ -1,0 +1,81 @@
+# Executable examples for rate_limiting.yaml. See authentication.yaml in this
+# directory for what these are and how they run.
+
+RATE-001:
+  - name: limiter registered
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask
+        from flask_limiter import Limiter
+        app = Flask(__name__)
+        limiter = Limiter(app=app, key_func=lambda: "ip")
+
+  - name: no limiter anywhere
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @app.route("/login", methods=["POST"])
+        def login():
+            return "ok"
+
+RATE-002:
+  - name: login endpoint carries its own limit
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask
+        from flask_limiter import Limiter
+        app = Flask(__name__)
+        limiter = Limiter(app=app, key_func=lambda: "ip")
+
+        @limiter.limit("5 per minute")
+        @app.route("/login", methods=["POST"])
+        def login():
+            return "ok"
+
+  - name: login endpoint on the default limit
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask
+        from flask_limiter import Limiter
+        app = Flask(__name__)
+        limiter = Limiter(app=app, key_func=lambda: "ip", default_limits=["200 per day"])
+
+        @app.route("/login", methods=["POST"])
+        def login():
+            return "ok"
+
+  - name: no credential endpoint to limit
+    expect: not_applicable
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @app.route("/notes")
+        def notes():
+            return []
+
+RATE-003:
+  - name: default limit configured
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask
+        from flask_limiter import Limiter
+        app = Flask(__name__)
+        limiter = Limiter(app=app, key_func=lambda: "ip", default_limits=["100 per hour"])
+
+  - name: limiter with no default
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask
+        from flask_limiter import Limiter
+        app = Flask(__name__)
+        limiter = Limiter(app=app, key_func=lambda: "ip")

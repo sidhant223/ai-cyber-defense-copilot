@@ -1,0 +1,96 @@
+name: AI Cyber Defense Copilot
+description: Report which security controls are absent from a codebase, and gate on them.
+author: ai-cyber-defense-copilot
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  path:
+    description: Directory to scan.
+    required: false
+    default: "."
+  config:
+    description: Path to a .copilot.yaml. Empty means look in the scanned directory.
+    required: false
+    default: ""
+  fail-on:
+    description: Fail only when a gap of at least this severity exists (critical|high|medium|low).
+    required: false
+    default: ""
+  fail-under:
+    description: Fail when the posture score is below this number (0-100).
+    required: false
+    default: ""
+  exit-zero:
+    description: Report findings without failing the job.
+    required: false
+    default: "false"
+  sarif-file:
+    description: Where to write SARIF. Empty skips it.
+    required: false
+    default: copilot.sarif
+  job-summary:
+    description: Append the Markdown report to the job summary.
+    required: false
+    default: "true"
+
+outputs:
+  score:
+    description: Posture score, 0-100.
+    value: ${{ steps.report.outputs.score }}
+  grade:
+    description: Letter grade, or empty when the run was narrowed to some categories.
+    value: ${{ steps.report.outputs.grade }}
+  gaps:
+    description: Number of gaps (absent or partial, excluding accepted findings).
+    value: ${{ steps.report.outputs.gaps }}
+  json-file:
+    description: Path to the full JSON report.
+    value: ${{ steps.report.outputs.json-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install the scanner
+      shell: bash
+      run: python -m pip install --disable-pip-version-check "${{ github.action_path }}"
+
+    - name: Scan and publish the report
+      id: report
+      shell: bash
+      env:
+        PYTHONIOENCODING: utf-8
+      run: |
+        set -euo pipefail
+        args=("${{ inputs.path }}")
+        if [ -n "${{ inputs.config }}" ]; then args+=(--config "${{ inputs.config }}"); fi
+
+        # The JSON report is the contract, so it is produced first and every
+        # other artefact is derived from the same scan's inputs.
+        copilot scan "${args[@]}" --format json -o copilot-report.json --exit-zero
+        python - <<'PY' >> "$GITHUB_OUTPUT"
+        import json, os
+        data = json.load(open("copilot-report.json", encoding="utf-8"))
+        summary = data["summary"]
+        print(f"score={summary['posture_score']}")
+        print(f"grade={summary['grade'] or ''}")
+        print(f"gaps={summary['by_status']['absent'] + summary['by_status']['partial']}")
+        print("json-file=copilot-report.json")
+        PY
+
+        if [ -n "${{ inputs.sarif-file }}" ]; then
+          copilot scan "${args[@]}" --format sarif -o "${{ inputs.sarif-file }}" --exit-zero
+        fi
+
+        if [ "${{ inputs.job-summary }}" = "true" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          copilot scan "${args[@]}" --format markdown --exit-zero >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        # The gate runs last so the job's outcome is this command's outcome.
+        gate=("${args[@]}" --summary-only)
+        if [ -n "${{ inputs.fail-on }}" ]; then gate+=(--fail-on "${{ inputs.fail-on }}"); fi
+        if [ -n "${{ inputs.fail-under }}" ]; then gate+=(--fail-under "${{ inputs.fail-under }}"); fi
+        if [ "${{ inputs.exit-zero }}" = "true" ]; then gate+=(--exit-zero); fi
+        copilot scan "${gate[@]}"

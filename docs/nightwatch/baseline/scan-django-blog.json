@@ -1,0 +1,616 @@
+{
+  "schema_version": "1.0",
+  "tool": {
+    "name": "ai-cyber-defense-copilot",
+    "version": "0.1.0"
+  },
+  "scan": {
+    "root_path": "corpus\\samples\\django-blog",
+    "framework": "django",
+    "language": "python",
+    "files_scanned": 9,
+    "skipped_files": 0,
+    "file_index": {
+      "routes": [
+        "blog/views.py",
+        "blogsite/urls.py"
+      ],
+      "config": [
+        "blogsite/settings.py",
+        "requirements.txt"
+      ],
+      "entrypoint": [
+        "blog/__init__.py",
+        "blogsite/__init__.py",
+        "manage.py"
+      ],
+      "source": [
+        "blog/__init__.py",
+        "blog/models.py",
+        "blog/views.py",
+        "blogsite/__init__.py",
+        "blogsite/settings.py",
+        "blogsite/urls.py",
+        "manage.py"
+      ],
+      "authentication": [
+        "blog/__init__.py",
+        "blog/views.py",
+        "blogsite/__init__.py",
+        "blogsite/settings.py",
+        "blogsite/urls.py",
+        "manage.py"
+      ],
+      "input_validation": [
+        "blog/__init__.py",
+        "blog/models.py",
+        "blog/views.py",
+        "blogsite/__init__.py",
+        "blogsite/urls.py",
+        "manage.py"
+      ],
+      "rate_limiting": [
+        "blog/__init__.py",
+        "blog/views.py",
+        "blogsite/__init__.py",
+        "blogsite/settings.py",
+        "blogsite/urls.py",
+        "manage.py",
+        "requirements.txt"
+      ],
+      "secret_management": [
+        "PROMPT.md",
+        "blog/__init__.py",
+        "blog/models.py",
+        "blog/views.py",
+        "blogsite/__init__.py",
+        "blogsite/settings.py",
+        "blogsite/urls.py",
+        "manage.py",
+        "requirements.txt"
+      ],
+      "access_control": [
+        "blog/__init__.py",
+        "blog/views.py",
+        "blogsite/__init__.py",
+        "blogsite/settings.py",
+        "blogsite/urls.py",
+        "manage.py",
+        "requirements.txt"
+      ]
+    },
+    "framework_evidence": [
+      {
+        "file_path": "manage.py",
+        "line_number": 7,
+        "snippet": "from django.core.management import execute_from_command_line",
+        "note": "import or usage in source"
+      },
+      {
+        "file_path": "requirements.txt",
+        "line_number": 1,
+        "snippet": "Django==5.0.1",
+        "note": "declared in manifest"
+      },
+      {
+        "file_path": "blog/models.py",
+        "line_number": 1,
+        "snippet": "from django.conf import settings",
+        "note": "import or usage in source"
+      },
+      {
+        "file_path": "blog/views.py",
+        "line_number": 1,
+        "snippet": "from django.contrib.auth.decorators import login_required",
+        "note": "import or usage in source"
+      },
+      {
+        "file_path": "blogsite/urls.py",
+        "line_number": 1,
+        "snippet": "from django.contrib import admin",
+        "note": "import or usage in source"
+      }
+    ]
+  },
+  "summary": {
+    "posture_score": 45,
+    "controls_evaluated": 22,
+    "controls_scored": 19,
+    "by_status": {
+      "present": 6,
+      "absent": 12,
+      "partial": 1,
+      "not_applicable": 3
+    },
+    "gaps_by_severity": {
+      "critical": 2,
+      "high": 6,
+      "medium": 5,
+      "low": 0
+    }
+  },
+  "findings": [
+    {
+      "control_id": "INPUT-002",
+      "control_name": "Database queries are parameterised",
+      "category": "input_validation",
+      "status": "absent",
+      "severity": "critical",
+      "message": "1 SQL statement in source(s) found, none parameterised.",
+      "evidence": [
+        {
+          "file_path": "blog/views.py",
+          "line_number": 24,
+          "snippet": "\"SELECT id, title FROM blog_post WHERE title LIKE '%%%s%%'\" % term",
+          "note": "unsafe marker on the same line: \"SELECT id, title FROM blog_post WHERE title LIKE '%%%s%%'\" % term"
+        },
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 6 indexed file(s) for SQL statement in source; 1 matched, 0 satisfied"
+        }
+      ],
+      "remediation_hint": "Pass values as query parameters, not as parts of the query string: cursor.execute(\"SELECT * FROM users WHERE id = %s\", (user_id,)) rather than an f-string. Table and column names cannot be parameterised, so map them through an allowlist instead of interpolating."
+    },
+    {
+      "control_id": "AC-004",
+      "control_name": "Administrative routes carry a role check",
+      "category": "access_control",
+      "status": "absent",
+      "severity": "high",
+      "message": "1 administrative route(s) found, none guarded by a role check.",
+      "evidence": [
+        {
+          "file_path": "blog/views.py",
+          "line_number": 62,
+          "snippet": "def moderate_delete_comment(request, comment_id):",
+          "note": "no guard within 4 lines above or 10 below, not crossing a blank line"
+        },
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 2 indexed file(s) for administrative route; 1 matched, 0 satisfied"
+        }
+      ],
+      "remediation_hint": "Add an authorisation check distinct from the authentication one, and make it deny by default: derive the requirement from the resource rather than from the URL, so a new admin route is protected without anyone remembering to decorate it."
+    },
+    {
+      "control_id": "AUTH-005",
+      "control_name": "Secure session cookie flags",
+      "category": "authentication",
+      "status": "absent",
+      "severity": "high",
+      "message": "1 session configuration site(s) found, none paired with secure cookie flags.",
+      "evidence": [
+        {
+          "file_path": "blogsite/settings.py",
+          "line_number": 23,
+          "snippet": "\"django.contrib.sessions.middleware.SessionMiddleware\",",
+          "note": "no guard anywhere in the project"
+        },
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 6 indexed file(s) for session configuration site; 1 matched, 0 satisfied"
+        }
+      ],
+      "remediation_hint": "Set the session cookie to Secure (HTTPS only), HttpOnly (not readable from JavaScript) and SameSite=Lax or Strict. In Flask these are the SESSION_COOKIE_* config keys; in express-session they are fields of the cookie option object."
+    },
+    {
+      "control_id": "INPUT-001",
+      "control_name": "Request body validated against a schema",
+      "category": "input_validation",
+      "status": "absent",
+      "severity": "high",
+      "message": "7 raw request body read(s) found, none validated against a schema.",
+      "evidence": [
+        {
+          "file_path": "blog/views.py",
+          "line_number": 21,
+          "snippet": "term = request.GET.get(\"q\", \"\")",
+          "note": "no guard anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 34,
+          "snippet": "title=request.POST[\"title\"],",
+          "note": "no guard anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 35,
+          "snippet": "body=request.POST[\"body\"],",
+          "note": "no guard anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 45,
+          "snippet": "post.title = request.POST[\"title\"]",
+          "note": "no guard anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 46,
+          "snippet": "post.body = request.POST[\"body\"]",
+          "note": "no guard anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 55,
+          "snippet": "body=request.POST[\"body\"],",
+          "note": "no guard anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 56,
+          "snippet": "author_name=request.POST.get(\"name\", \"anonymous\"),",
+          "note": "no guard anywhere in the same file"
+        },
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 2 indexed file(s) for raw request body read; 7 matched, 0 satisfied"
+        }
+      ],
+      "remediation_hint": "Declare the expected shape once and let the framework reject anything else: a Pydantic model as a typed handler parameter, a marshmallow or DRF serializer, or a zod/Joi schema checked before the handler body runs. Reject unknown fields explicitly rather than ignoring them."
+    },
+    {
+      "control_id": "RATE-001",
+      "control_name": "Rate limiting middleware registered",
+      "category": "rate_limiting",
+      "status": "absent",
+      "severity": "high",
+      "message": "Rate limiting middleware registered: no match anywhere in scope.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched file contents of 7 indexed file(s) against 8 pattern(s); found nothing"
+        }
+      ],
+      "remediation_hint": "Install and register a limiter for the framework in use -- flask-limiter, slowapi for FastAPI, express-rate-limit for Express, or DRF's throttle classes -- and back it with a shared store (Redis) if you run more than one process, otherwise each worker counts separately."
+    },
+    {
+      "control_id": "SECRET-003",
+      "control_name": "No high-entropy literals in source",
+      "category": "secret_management",
+      "status": "absent",
+      "severity": "high",
+      "message": "1 high-entropy string literal(s) sit in source where a secret store should be used.",
+      "evidence": [
+        {
+          "file_path": "blogsite/settings.py",
+          "line_number": 5,
+          "snippet": "djan...io6p (50 chars)",
+          "note": "Shannon entropy 5.05 bits/char over 50 characters"
+        }
+      ],
+      "remediation_hint": "Move the value into the environment or a secret manager and read it at startup. If the literal is genuinely not a secret -- a fixture, a public key, a test vector -- move it under a tests or fixtures path, which the entropy check already allowlists."
+    },
+    {
+      "control_id": "SECRET-005",
+      "control_name": "Secret configuration read from the environment",
+      "category": "secret_management",
+      "status": "absent",
+      "severity": "high",
+      "message": "2 secret-named configuration assignment(s) found, none read from the environment.",
+      "evidence": [
+        {
+          "file_path": "blogsite/settings.py",
+          "line_number": 5,
+          "snippet": "SECRET_KEY = \"django-insecure-8k2h4jd9sla0zxc7vbnm1qwe5rty3uio6p\"",
+          "note": "no guard on the same line"
+        },
+        {
+          "file_path": "blogsite/settings.py",
+          "line_number": 35,
+          "snippet": "\"PASSWORD\": \"bl0g-db-passw0rd\",",
+          "note": "no guard on the same line"
+        },
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 8 indexed file(s) for secret-named configuration assignment; 2 matched, 0 satisfied"
+        }
+      ],
+      "remediation_hint": "Read secret configuration from the environment with a required lookup that fails loudly at startup when it is missing, rather than from a literal with a default baked in."
+    },
+    {
+      "control_id": "AC-002",
+      "control_name": "Debug mode not enabled",
+      "category": "access_control",
+      "status": "absent",
+      "severity": "medium",
+      "message": "Debug mode not enabled: matched in 1 location(s).",
+      "evidence": [
+        {
+          "file_path": "blogsite/settings.py",
+          "line_number": 7,
+          "snippet": "DEBUG = True",
+          "note": "matched \\bDEBUG\\s*=\\s*True\\b"
+        }
+      ],
+      "remediation_hint": "Drive debug from an environment variable that defaults to off, so production cannot inherit a developer's setting. Never ship a configuration file in which debug is literally True."
+    },
+    {
+      "control_id": "AC-003",
+      "control_name": "Response security headers set",
+      "category": "access_control",
+      "status": "absent",
+      "severity": "medium",
+      "message": "Response security headers set: no match anywhere in scope.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched file contents of 7 indexed file(s) against 9 pattern(s); found nothing"
+        }
+      ],
+      "remediation_hint": "Add the headers once in middleware rather than per response: helmet for Express, Talisman for Flask, or Django's SecurityMiddleware with the SECURE_* settings turned on. Start the CSP in report-only mode so you can tighten it without breaking the page."
+    },
+    {
+      "control_id": "AC-005",
+      "control_name": "Host allowlist is not wildcard",
+      "category": "access_control",
+      "status": "absent",
+      "severity": "medium",
+      "message": "Host allowlist is not wildcard: matched in 1 location(s).",
+      "evidence": [
+        {
+          "file_path": "blogsite/settings.py",
+          "line_number": 9,
+          "snippet": "ALLOWED_HOSTS = [\"*\"]",
+          "note": "matched ALLOWED_HOSTS\\s*=\\s*\\[\\s*[\"']\\*[\"']"
+        }
+      ],
+      "remediation_hint": "List the hostnames the service actually serves, read from configuration per environment. Keep the wildcard out of anything that ships."
+    },
+    {
+      "control_id": "AUTH-006",
+      "control_name": "Session expiry configured",
+      "category": "authentication",
+      "status": "absent",
+      "severity": "medium",
+      "message": "1 session configuration site(s) found, none given a lifetime.",
+      "evidence": [
+        {
+          "file_path": "blogsite/settings.py",
+          "line_number": 23,
+          "snippet": "\"django.contrib.sessions.middleware.SessionMiddleware\",",
+          "note": "no guard anywhere in the project"
+        },
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 6 indexed file(s) for session configuration site; 1 matched, 0 satisfied"
+        }
+      ],
+      "remediation_hint": "Give sessions and tokens an explicit lifetime and refresh them on activity rather than issuing one that never expires."
+    },
+    {
+      "control_id": "RATE-003",
+      "control_name": "Global default limit configured",
+      "category": "rate_limiting",
+      "status": "absent",
+      "severity": "medium",
+      "message": "Global default limit configured: no match anywhere in scope.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched file contents of 7 indexed file(s) against 6 pattern(s); found nothing"
+        }
+      ],
+      "remediation_hint": "Configure a default limit on the limiter itself and apply it as middleware, so a new route is limited the moment it is added rather than when someone remembers to decorate it."
+    },
+    {
+      "control_id": "AUTH-007",
+      "control_name": "View-level authentication (Django)",
+      "category": "authentication",
+      "status": "partial",
+      "severity": "critical",
+      "message": "3 of 7 Django view function(s) are authenticated; 4 are not.",
+      "evidence": [
+        {
+          "file_path": "blog/views.py",
+          "line_number": 10,
+          "snippet": "def post_list(request):",
+          "note": "no guard within 5 lines above, not crossing a blank line or anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 15,
+          "snippet": "def post_detail(request, post_id):",
+          "note": "no guard within 5 lines above, not crossing a blank line or anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 20,
+          "snippet": "def post_search(request):",
+          "note": "no guard within 5 lines above, not crossing a blank line or anywhere in the same file"
+        },
+        {
+          "file_path": "blog/views.py",
+          "line_number": 52,
+          "snippet": "def comment_create(request, post_id):",
+          "note": "no guard within 5 lines above, not crossing a blank line or anywhere in the same file"
+        }
+      ],
+      "remediation_hint": "Decorate each view that exposes or changes user data with login_required, or use LoginRequiredMixin on class-based views. For DRF, set DEFAULT_PERMISSION_CLASSES to IsAuthenticated so views are protected by default and opting out is the explicit act."
+    },
+    {
+      "control_id": "AUTH-003",
+      "control_name": "Password hashing",
+      "category": "authentication",
+      "status": "present",
+      "severity": "critical",
+      "message": "All 1 password handling site(s) are backed by a hashing function.",
+      "evidence": [
+        {
+          "file_path": "blogsite/settings.py",
+          "line_number": 35,
+          "snippet": "\"PASSWORD\": \"bl0g-db-passw0rd\",",
+          "note": "guard found anywhere in the project: from django.contrib.auth.decorators import login_required"
+        }
+      ],
+      "remediation_hint": "Store a hash, never the password. Use bcrypt, argon2 or scrypt through a maintained library, and compare with the library's verify function rather than with the equality operator."
+    },
+    {
+      "control_id": "INPUT-004",
+      "control_name": "No shell execution on request-derived input",
+      "category": "input_validation",
+      "status": "present",
+      "severity": "critical",
+      "message": "No shell execution on request-derived input: no match anywhere in scope.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched file contents of 6 indexed file(s) against 7 pattern(s); found nothing"
+        }
+      ],
+      "remediation_hint": "Call the program directly with an argument list and shell=False, so the shell never parses user data. Replace eval and pickle with a parser that only accepts the data you expect: json.loads, or yaml.safe_load."
+    },
+    {
+      "control_id": "SECRET-001",
+      "control_name": "No credentials in recognised provider formats",
+      "category": "secret_management",
+      "status": "present",
+      "severity": "critical",
+      "message": "No credentials in recognised provider formats: no match anywhere in scope.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched file contents of 9 indexed file(s) against 16 pattern(s); found nothing"
+        }
+      ],
+      "remediation_hint": "Treat every matched key as compromised: rotate it at the provider first, then remove it from the code. Removing it from the working tree is not enough on its own -- it stays in git history, so purge or rotate. Afterwards read the value from the environment or a secret manager."
+    },
+    {
+      "control_id": "SECRET-002",
+      "control_name": "No credentials embedded in connection strings",
+      "category": "secret_management",
+      "status": "present",
+      "severity": "critical",
+      "message": "No credentials embedded in connection strings: no match anywhere in scope.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched file contents of 9 indexed file(s) against 2 pattern(s); found nothing"
+        }
+      ],
+      "remediation_hint": "Build the URL at runtime from environment variables, or store the whole URL in one environment variable. Rotate the password that appeared in source; it must be assumed known."
+    },
+    {
+      "control_id": "AC-001",
+      "control_name": "CORS policy is not wildcard or origin-reflecting",
+      "category": "access_control",
+      "status": "present",
+      "severity": "high",
+      "message": "CORS policy is not wildcard or origin-reflecting: no match anywhere in scope.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched file contents of 7 indexed file(s) against 8 pattern(s); found nothing"
+        }
+      ],
+      "remediation_hint": "Name the origins explicitly, from configuration rather than from the request. If credentials are allowed, a wildcard is not merely weak -- browsers reject the combination, so the code is broken as well as open."
+    },
+    {
+      "control_id": "AUTH-004",
+      "control_name": "Password hashing algorithm is not MD5 or SHA-1",
+      "category": "authentication",
+      "status": "present",
+      "severity": "high",
+      "message": "Password hashing algorithm is not MD5 or SHA-1: no match anywhere in scope.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched file contents of 6 indexed file(s) against 4 pattern(s); found nothing"
+        }
+      ],
+      "remediation_hint": "Replace the digest with a purpose-built password hash (bcrypt, argon2, scrypt). Existing hashes cannot be converted, so rehash on next successful login and force a reset for accounts that never return."
+    },
+    {
+      "control_id": "INPUT-003",
+      "control_name": "File uploads restricted by type and size",
+      "category": "input_validation",
+      "status": "not_applicable",
+      "severity": "high",
+      "message": "No file upload handler found, so this control has nothing to protect.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 6 indexed file(s) for file upload handler; 0 matched"
+        }
+      ],
+      "remediation_hint": "Cap the request size at the framework level, allowlist the extensions and content types you accept, and write the file under a name you generate rather than the one the client supplied."
+    },
+    {
+      "control_id": "RATE-002",
+      "control_name": "Credential endpoints rate limited",
+      "category": "rate_limiting",
+      "status": "not_applicable",
+      "severity": "high",
+      "message": "No credential endpoint found, so this control has nothing to protect.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 2 indexed file(s) for credential endpoint; 0 matched"
+        }
+      ],
+      "remediation_hint": "Put a tight, explicit limit on each credential endpoint -- on the order of a handful of attempts per minute per IP and per account -- separate from whatever global default the app uses. Count failures, not requests, and prefer a shared store so the limit survives a restart."
+    },
+    {
+      "control_id": "SECRET-004",
+      "control_name": "Environment files excluded from version control",
+      "category": "secret_management",
+      "status": "not_applicable",
+      "severity": "high",
+      "message": "No .env file present in the tree.",
+      "evidence": [
+        {
+          "file_path": "",
+          "line_number": null,
+          "snippet": null,
+          "note": "searched 9 file(s) for a .env; found none (.env.example and friends are ignored by design)"
+        }
+      ],
+      "remediation_hint": "Add .env (and its per-environment variants) to .gitignore, commit a .env.example carrying names but no values, and rotate anything the real file already exposed."
+    }
+  ],
+  "skipped_controls": [
+    {
+      "control_id": "AUTH-001",
+      "category": "authentication",
+      "reason": "applies to flask, fastapi; detected framework is django"
+    },
+    {
+      "control_id": "AUTH-002",
+      "category": "authentication",
+      "reason": "applies to express, nextjs; detected framework is django"
+    }
+  ]
+}

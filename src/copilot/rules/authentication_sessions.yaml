@@ -1,0 +1,178 @@
+category: authentication
+description: >
+  Second rule file for the authentication category: the controls that protect
+  a session or token once the user has one, plus the password policy applied
+  when they choose it. Split from authentication.yaml to keep both files
+  readable; the engine merges rule files by category, so adding one is still a
+  data change.
+
+controls:
+  - id: AUTH-008
+    name: CSRF protection where a cookie session authenticates the request
+    severity: high
+    cwe: CWE-352
+    owasp: A01:2021
+    description: >
+      An app that authenticates browser requests with a cookie needs a CSRF
+      defence on state-changing requests, because the browser attaches that
+      cookie whoever caused the request.
+    rationale: >
+      This is the largest single gap in the generated corpus: not one of the
+      eight samples has a CSRF defence, including the two whose prompts asked
+      for security controls. A bearer token in an Authorization header is not
+      sent automatically, which is why token APIs are not applicable here.
+    applies_to:
+      index_buckets: [source, config, entrypoint, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: cookie-backed session
+        # The same subject as AUTH-005/AUTH-006: real session machinery, not
+        # any SECRET_KEY. A stateless token API has nothing to protect here.
+        pattern: '\b(?:app\.secret_key|SessionMiddleware|express-session|cookie-session|flask_session|Session\s*\(\s*app|SESSION_COOKIE|session\.permanent)|\bsession\s*\['
+      guard:
+        type: regex
+        description: covered by a CSRF defence
+        scope: project
+        any_of:
+          - 'CSRFProtect\s*\(|CsrfProtect\s*\(|csrf\.init_app\s*\('
+          - 'CsrfViewMiddleware'
+          - '\bcsurf\s*\(|\bdoubleCsrf\s*\(|\bcsrfSync\b|lusca\.csrf|\bcsrf\s*\(\s*\{'
+          - 'validate_csrf\s*\(|verify_csrf|check_csrf|csrf_protect\s*\('
+          - '@csrf_protect|@csrf\.exempt\s*\(\s*\)'
+    verdict:
+      all_subjects_guarded: present
+      # The guard is project-scoped, so it is satisfied for every session site
+      # or for none. "Some" cannot happen; mapping it to present keeps the
+      # verdict table total rather than relying on that.
+      some_subjects_guarded: present
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Turn on the framework's CSRF middleware -- CSRFProtect for Flask,
+      CsrfViewMiddleware for Django, csrf-csrf or csurf for Express -- and
+      submit the token from every form and fetch that changes state. Setting
+      SameSite on the cookie is worth doing as well, but OWASP treats it as
+      defence in depth rather than a CSRF defence, so it does not satisfy this
+      control on its own.
+
+  - id: AUTH-009
+    name: Issued authentication tokens expire
+    severity: high
+    cwe: CWE-613
+    owasp: A07:2021
+    description: >
+      Every place that signs a token should give it an expiry claim.
+    rationale: >
+      A signed token with no expiry is a permanent credential. Unlike a
+      session, there is no server-side record to delete, so short of rotating
+      the signing key there is no revocation path at all.
+    applies_to:
+      index_buckets: [source, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: token issuing call
+        pattern: '\b(?:jwt\.encode|jwt\.sign|jose\.sign|create_access_token|create_refresh_token|encode_token)\s*\('
+      guard:
+        type: regex
+        description: given an expiry
+        # The expiry usually sits in a payload assembled just above the call,
+        # or in an options object just after it.
+        proximity_lines: 8
+        proximity_lines_below: 4
+        stop_at: '^\s*$'
+        any_of:
+          - '["'']exp["'']\s*:'
+          - '\bexp\s*[:=]'
+          - '\bexpiresIn\b|\bexpires_in\b|\bexpires_delta\b|\bexpiration\b'
+          - '\bmax_age\s*='
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Set a short expiry when the token is signed -- an exp claim in Python, an
+      expiresIn option in Node -- and issue a separate refresh token if
+      sessions need to outlive it. Verification must reject expired tokens,
+      which most libraries do by default once exp is present.
+
+  - id: AUTH-010
+    name: Password strength enforced where a password is set
+    severity: medium
+    cwe: CWE-521
+    owasp: A07:2021
+    description: >
+      A handler that accepts a new password -- registration, reset, change --
+      should enforce a minimum length server-side.
+    rationale: >
+      Hashing protects a password after the fact; a length requirement is what
+      stops the account being guessable in the first place. Eight characters
+      is the floor in both NIST SP 800-63B and OWASP ASVS, so a shorter
+      minimum does not satisfy this control.
+    applies_to:
+      index_buckets: [routes, source]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: endpoint that sets a password
+        flags: [ignorecase]
+        # Deliberately not /login or /token: signing in with an existing
+        # password is not where a policy can be applied.
+        # The second branch exists for Django, which has no route decorator to
+        # match, and requires the `request` parameter a Django view always
+        # takes. Without that it matched any `def register(...)` -- including
+        # a plugin registry's, which is how this tool scanning itself found
+        # the bug.
+        pattern: '(?:@(?:app|router|bp|api|[A-Za-z_]\w*_bp)\.(?:route|post|put|patch)|(?:app|router|api)\.(?:post|put|patch))\s*\(\s*["''`][^"''`]*(?:register|signup|sign-up|users?$|users?["''`]|password[/_-]?reset|reset[/_-]?password|change[/_-]?password|password$|password["''`])|^\s*(?:async\s+)?def\s+(?:register|signup|create_user|change_password|reset_password)\w*\s*\(\s*request\b'
+      guard:
+        type: regex
+        description: constrained by a minimum length or a strength check
+        # File scope: the constraint is usually declared on a schema at the
+        # top of the module rather than inside the handler.
+        scope: file
+        any_of:
+          - 'min_length\s*=\s*\d+|constr\s*\([^)]*min_length'
+          - '\.min\s*\(\s*\d+\s*\)'
+          - 'isLength\s*\(|isStrongPassword\s*\('
+          - 'len\s*\(\s*\w*(?:password|passwd|pwd)\w*\s*\)\s*[<>]=?\s*\d+'
+          - '\w*(?:password|passwd|pwd)\w*\.length\s*[<>]=?\s*\d+'
+          - 'validate_password\s*\(|AUTH_PASSWORD_VALIDATORS|UserCreationForm'
+          - '\bzxcvbn\b|password_strength|MinimumLengthValidator'
+        # A minimum below the ASVS floor of 8 is not a policy. This is the
+        # switched-off-guard case: the check is there and does not count.
+        none_of:
+          - 'min_length\s*=\s*[1-7]\b'
+          - '\.min\s*\(\s*[1-7]\s*\)'
+          - 'len\s*\(\s*\w*(?:password|passwd|pwd)\w*\s*\)\s*<\s*[1-7]\b'
+          - '\w*(?:password|passwd|pwd)\w*\.length\s*<\s*[1-7]\b'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Declare the rule on the schema that parses the request -- min_length on
+      a Pydantic field, .min(12) in zod, isLength in express-validator -- so
+      every handler that accepts a password inherits it. Check the password
+      against a breached-password list rather than demanding character
+      classes, which is what both NIST and ASVS now recommend.

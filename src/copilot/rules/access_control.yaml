@@ -1,0 +1,241 @@
+category: access_control
+description: >
+  Checks the configuration that decides who may reach the application and what
+  the browser is told to do with it: CORS policy, debug mode, response
+  security headers, and whether administrative routes are separated from
+  ordinary authenticated ones.
+
+controls:
+  - id: AC-001
+    name: CORS policy is not wildcard or origin-reflecting
+    severity: high
+    cwe: CWE-942
+    owasp: A01:2021
+    description: >
+      Access-Control-Allow-Origin must name the origins you trust. A wildcard,
+      or an origin echoed back from the request, is not a policy.
+    rationale: >
+      Both flask-cors' CORS(app) and Express's cors() default to allowing any
+      origin. The insecure state is the one you get by writing less code,
+      which is exactly the shape this tool is meant to catch.
+    applies_to:
+      index_buckets: [source, config, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'Access-Control-Allow-Origin["'']?\s*[,:=]\s*["'']\*'
+          - '(?:origins|allow_origins|allowedOrigins|origin)\s*[:=]\s*\[?\s*["'']\*["'']'
+          - '\bCORS\s*\(\s*(?:app|application)\s*\)'
+          - '\bcors\s*\(\s*\)'
+          - 'origin\s*:\s*(?:true|req\.headers\.origin|request\.headers)'
+          - 'allow_origin_regex\s*=\s*["'']\.\*'
+          - 'Access-Control-Allow-Origin["'']?\s*[,:=]\s*(?:request|req)\.'
+          - 'allow_credentials\s*=\s*True[^\n]*allow_origins\s*=\s*\[\s*["'']\*'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Name the origins explicitly, from configuration rather than from the
+      request. If credentials are allowed, a wildcard is not merely weak --
+      browsers reject the combination, so the code is broken as well as open.
+
+  - id: AC-002
+    name: Debug mode not enabled
+    severity: medium
+    cwe: CWE-489
+    owasp: A05:2021
+    description: >
+      Debug mode turns stack traces, and in Flask's case an interactive
+      console, into a response body.
+    applies_to:
+      index_buckets: [source, config, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/conftest.py"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bDEBUG\s*=\s*True\b'
+          - '\bdebug\s*=\s*True\b'
+          - '\bdebug\s*:\s*true\b'
+          - 'FLASK_DEBUG\s*=\s*[1t]'
+          - 'app\.run\s*\([^)]*debug\s*=\s*True'
+          - 'DEBUG_PROPAGATE_EXCEPTIONS\s*=\s*True'
+        # No none_of here. An earlier version allowlisted any line mentioning
+        # os.environ, on the theory that debug was being read from config --
+        # but every pattern above already requires a literal True, so the
+        # allowlist only ever suppressed real findings. app.run(port=int(
+        # os.environ["PORT"]), debug=True) was missed because of it.
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Drive debug from an environment variable that defaults to off, so
+      production cannot inherit a developer's setting. Never ship a
+      configuration file in which debug is literally True.
+
+  - id: AC-003
+    name: Response security headers set
+    severity: medium
+    cwe: CWE-693
+    owasp: A05:2021
+    description: >
+      A Content-Security-Policy, HSTS and X-Frame-Options should be attached
+      to responses, whether by middleware or by hand.
+    applies_to:
+      index_buckets: [source, config, entrypoint]
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'Content-Security-Policy'
+          - 'Strict-Transport-Security'
+          - 'X-Frame-Options'
+          - 'X-Content-Type-Options'
+          - 'Referrer-Policy'
+          - '\bhelmet\s*\('
+          - '\bTalisman\s*\('
+          - 'SecurityMiddleware|secure_headers|SECURE_HSTS_SECONDS'
+          - 'SECURE_BROWSER_XSS_FILTER|SECURE_CONTENT_TYPE_NOSNIFF'
+    verdict:
+      found: present
+      not_found: absent
+    remediation_hint: >
+      Add the headers once in middleware rather than per response: helmet for
+      Express, Talisman for Flask, or Django's SecurityMiddleware with the
+      SECURE_* settings turned on. Start the CSP in report-only mode so you
+      can tighten it without breaking the page.
+
+  - id: AC-004
+    name: Administrative routes carry a role check
+    severity: high
+    cwe: CWE-862
+    owasp: A01:2021
+    description: >
+      An admin route needs authorisation, not just authentication. Being
+      logged in is not the same as being allowed.
+    rationale: >
+      This is the classic broken-access-control shape: the route is behind
+      login_required, and any logged-in user can reach it.
+    applies_to:
+      index_buckets: [routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: administrative route
+        flags: [ignorecase]
+        # Two shapes: a route whose path says administrative, and a Django
+        # view function whose name does. Django has no route decorator to
+        # match, so the view name is the only signal available.
+        pattern: '(?:@(?:app|router|bp|api|[A-Za-z_]\w*_bp)\.(?:route|get|post|put|delete|patch)|(?:app|router|api)\.(?:get|post|put|delete|patch))\s*\(\s*["''`][^"''`]*(?:/admin|/administrator|/manage|/internal|/staff|/superuser|/dashboard/admin|/users/\S*/(?:role|ban|delete)|/settings/system)|^\s*(?:async\s+)?def\s+(?:admin|moderate|moderation|manage|staff|superuser)\w*\s*\(\s*request\b'
+      guard:
+        type: regex
+        description: guarded by a role check
+        proximity_lines: 4
+        proximity_lines_below: 10
+        stop_at: '^\s*$'
+        any_of:
+          - '@(?:admin_required|roles?_required|permission_required|requires_role|staff_member_required|superuser_required)'
+          - '\b(?:is_admin|isAdmin|is_staff|is_superuser|hasRole|has_role|requireRole|requireAdmin|checkRole|ensureAdmin|adminOnly|authorize)\b'
+          - '\brole\s*(?:==|!=|\bin\b)|\.role\s*(?:==|!=)'
+          - 'Depends\s*\(\s*[A-Za-z_.]*(?:admin|role|permission|scope)'
+          - 'Security\s*\([^)]*scopes\s*='
+          - 'permission_classes\s*=|IsAdminUser'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Add an authorisation check distinct from the authentication one, and
+      make it deny by default: derive the requirement from the resource rather
+      than from the URL, so a new admin route is protected without anyone
+      remembering to decorate it.
+
+  - id: AC-006
+    name: Error responses do not carry exception detail
+    severity: medium
+    cwe: CWE-209
+    owasp: A05:2021
+    description: >
+      An error response should say that something failed, not what failed.
+      Exception messages and stack traces belong in the log.
+    rationale: >
+      The message from a database driver or an ORM names tables, columns and
+      file paths. Handing it to the caller turns a failed request into a free
+      description of the inside of the application.
+    applies_to:
+      index_buckets: [source, routes, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\b(?:err|error|e|exc)\.(?:stack|message)\b'
+          - '(?:error|message|detail|reason)\s*[:=]\s*(?:str|repr)\s*\(\s*(?:e|exc|err|error)\s*\)'
+          - 'detail\s*=\s*(?:str|repr|f?["''])?\s*\{?\s*(?:e|exc|err)\b'
+          - '(?:jsonify|res\.json|res\.send|HttpResponse|JsonResponse)\s*\([^)]*(?:str|repr)\s*\(\s*(?:e|exc|err)\s*\)'
+          - 'traceback\.format_exc\s*\('
+          - 'return\s+(?:str|repr)\s*\(\s*(?:e|exc|err)\s*\)\s*,\s*\d{3}'
+        # Writing the detail to a log is the correct handling, so a line that
+        # logs rather than responds is not a finding.
+        none_of:
+          - '\b(?:logger|logging|log|console)\.\w+\s*\('
+          - '\bprint\s*\('
+          - '#\s*nosec|//\s*nosec|noqa'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Log the exception with a correlation id and return a generic message
+      plus that id. Register one error handler that does this for every route,
+      so a new handler cannot leak by omission, and keep framework debug mode
+      off in anything deployed.
+
+  - id: AC-005
+    name: Host allowlist is not wildcard
+    severity: medium
+    cwe: CWE-20
+    owasp: A05:2021
+    description: >
+      ALLOWED_HOSTS names the hostnames the application will answer to. A
+      wildcard turns off the check entirely.
+    rationale: >
+      Without it, Host header poisoning becomes available: password reset
+      links and absolute URLs get built from whatever host the attacker sent.
+    applies_to:
+      frameworks: [django]
+      index_buckets: [config, source]
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'ALLOWED_HOSTS\s*=\s*\[\s*["'']\*["'']'
+          - 'ALLOWED_HOSTS\s*=\s*\[\s*\]'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      List the hostnames the service actually serves, read from configuration
+      per environment. Keep the wildcard out of anything that ships.

@@ -1,0 +1,10 @@
+# Only the package inputs are needed to build the CLI image.
+**
+!Dockerfile
+!pyproject.toml
+!README.md
+!src/
+!src/**
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/

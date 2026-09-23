@@ -1,0 +1,18 @@
+category: bad_regex_fixture
+description: fixture for `copilot rules validate` -- one control with a regex that does not compile.
+
+controls:
+  - id: BADREGEX-001
+    name: A control with an unclosed regex
+    severity: medium
+    applies_to: {}
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '(unclosed'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: fix the regex

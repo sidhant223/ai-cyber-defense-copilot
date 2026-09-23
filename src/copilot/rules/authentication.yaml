@@ -1,0 +1,358 @@
+category: authentication
+description: >
+  Checks whether route handlers enforce authentication, whether session
+  cookies are configured safely, and whether passwords are stored as hashes
+  rather than as recoverable values.
+
+controls:
+  - id: AUTH-001
+    name: Route-level authentication (Python)
+    severity: critical
+    cwe: CWE-306
+    owasp: A07:2021
+    description: >
+      Every route that exposes user data or performs a state change should
+      require an authenticated caller.
+    rationale: >
+      This is the single most common omission in generated web applications.
+      The route exists, the handler works, and nothing checks who is calling.
+    applies_to:
+      frameworks: [flask, fastapi]
+      languages: [python]
+      index_buckets: [routes]
+      exclude_patterns:
+        - "**/test_*.py"
+        - "**/tests/**"
+        - "**/conftest.py"
+        - "**/migrations/**"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: HTTP route handler
+        pattern: '@(?:app|router|bp|api|blueprint|[A-Za-z_][A-Za-z0-9_]*_(?:bp|router|blueprint))\.(?:route|get|post|put|delete|patch)\s*\('
+        # Endpoints that are unauthenticated by design. Flagging these is the
+        # fastest way to make a scanner untrustworthy.
+        exclude:
+          - '["'']/?(?:login|signin|sign-in|signup|register|token|auth/(?:login|token|callback)|logout)'
+          - '["'']/?(?:health|healthz|ping|status|metrics|readiness|liveness)'
+          - '["'']/?(?:docs|redoc|openapi\.json|favicon\.ico|robots\.txt)'
+          - '["'']/?(?:static|assets|public)/'
+          - '["'']/["'']\s*[,)]'
+      guard:
+        type: regex
+        description: authenticated
+        # Above catches decorators; below catches FastAPI dependencies that
+        # sit in the handler signature.
+        proximity_lines: 4
+        proximity_lines_below: 8
+        stop_at: '^\s*$'
+        any_of:
+          - '@(?:login_required|jwt_required|token_required|requires_auth|auth_required|authenticated)'
+          - '@(?:login_manager|auth|jwt|oidc)\.[A-Za-z_]+'
+          - '@(?:permission_required|roles_required|role_required|admin_required)'
+          # Includes role dependencies: require_admin authenticates before it
+          # authorises, so a route behind it is authenticated. AC-004 is what
+          # judges whether the role check itself is there.
+          - 'Depends\s*\(\s*[A-Za-z_.]*(?:current_user|get_user|auth|authenticate|verify_token|jwt|oauth|security|admin|role|permission|principal|require_)'
+          - 'Security\s*\(\s*[A-Za-z_.]+'
+          - 'dependencies\s*=\s*\[\s*Depends\s*\('
+          - '@method_decorator\s*\(\s*login_required'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Attach an authentication dependency or decorator to each route that
+      exposes user data or performs a state change. In Flask this is a
+      login_required-style decorator above the route; in FastAPI it is a
+      Depends(...) parameter on the handler, or a router-level dependencies
+      list so new routes inherit it by default.
+
+  - id: AUTH-002
+    name: Route-level authentication (JavaScript)
+    severity: critical
+    cwe: CWE-306
+    owasp: A07:2021
+    description: >
+      Express and Next.js API routes should name an authentication
+      middleware before the handler.
+    applies_to:
+      frameworks: [express, nextjs]
+      languages: [javascript, typescript]
+      index_buckets: [routes]
+      exclude_patterns:
+        - "**/*.test.js"
+        - "**/*.test.ts"
+        - "**/*.spec.js"
+        - "**/*.spec.ts"
+        - "**/__tests__/**"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: HTTP route handler
+        pattern: '\b(?:app|router|api)\.(?:get|post|put|delete|patch)\s*\(\s*["''`]'
+        exclude:
+          - '["''`]/?(?:login|signin|sign-in|signup|register|token|logout|auth/)'
+          - '["''`]/?(?:health|healthz|ping|status|metrics)'
+          - '["''`]/?(?:static|assets|public)/'
+          # Note: '/' is deliberately NOT excluded here, unlike in AUTH-001.
+          # An Express router is mounted under a prefix, so router.get('/')
+          # is the collection endpoint, not a public landing page.
+      # Three guards, because Express lets you write the same protection at
+      # three levels. Without all three, a router mounted behind middleware
+      # reads as completely unauthenticated -- which is the loudest possible
+      # false positive.
+      guards:
+        - type: regex
+          description: named as route middleware
+          proximity_lines: 2
+          proximity_lines_below: 3
+          stop_at: '^\s*$'
+          any_of:
+            - '\b(?:requireAuth|requiresAuth|isAuthenticated|ensureAuthenticated|ensureLoggedIn|authenticate|authMiddleware|checkAuth|verifyToken|verifyJWT|jwtCheck|protect|authGuard|withAuth|requireUser|requireSession|requireLogin|requireAdmin)\b'
+            - 'passport\.authenticate\s*\('
+            - 'expressJwt\s*\('
+            - 'getServerSession\s*\('
+        - type: regex
+          description: applied router-wide in this file
+          scope: file
+          any_of:
+            - '\b(?:router|app)\.use\s*\(\s*[A-Za-z_$][\w$]*(?:[Aa]uth|Login|Session|Admin|Protect|User)[\w$]*\s*[,)]'
+        - type: regex
+          description: applied where this router is mounted
+          # Project scope is a deliberate concession. Resolving which router a
+          # mount refers to needs module-level dataflow, which is out of scope
+          # for this tool, so a mount with auth middleware anywhere in the
+          # project satisfies every route. It trades recall for precision:
+          # see docs/controls.md, "Cross-module middleware".
+          scope: project
+          any_of:
+            - '\bapp\.use\s*\(\s*["''`][^"''`]+["''`]\s*,\s*[A-Za-z_$][\w$]*(?:[Aa]uth|Login|Session|Admin|Protect)[\w$]*\s*,'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Insert an authentication middleware between the path and the handler,
+      for example router.get('/orders', requireAuth, listOrders), or mount it
+      once with router.use(requireAuth) so every route below inherits it.
+
+  - id: AUTH-003
+    name: Password hashing
+    severity: critical
+    cwe: CWE-256
+    owasp: A02:2021
+    description: >
+      Where the application handles passwords, a password hashing function
+      should appear somewhere in the codebase.
+    rationale: >
+      This is one of the few genuinely presence-shaped checks in the tool:
+      the absence of any hashing call in an application that stores passwords
+      means they are stored in a recoverable form.
+    applies_to:
+      index_buckets: [source]
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: password handling site
+        flags: [ignorecase]
+        # Assignment, comparison, a typed parameter, or the identifier
+        # appearing as a destructured field or call argument -- the last two
+        # are how JavaScript codebases touch a password at all.
+        pattern: '\b(?:password|passwd|pwd)\b\s*(?:=[^=]|==|!=|:\s*(?:str|string)|[,}\)]|\.\w|["'']\]?)'
+        exclude:
+          - '\b(?:password|passwd|pwd)\s*=\s*(?:os\.(?:environ|getenv)|process\.env|config\.|settings\.)'
+      guard:
+        type: regex
+        description: backed by a hashing function
+        scope: project
+        any_of:
+          - '\b(?:bcrypt|argon2|scrypt|pbkdf2_hmac|pbkdf2Sync|PasswordHasher)\b'
+          - 'generate_password_hash|check_password_hash'
+          - 'make_password|set_password|check_password'
+          - 'passlib|CryptContext'
+          - 'hash\.(?:hash|verify)\s*\('
+          # Django hashes through contrib.auth; installing it is the evidence.
+          - 'django\.contrib\.auth|AUTH_PASSWORD_VALIDATORS|AbstractBaseUser'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: present
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Store a hash, never the password. Use bcrypt, argon2 or scrypt through
+      a maintained library, and compare with the library's verify function
+      rather than with the equality operator.
+
+  - id: AUTH-004
+    name: Password hashing algorithm is not MD5 or SHA-1
+    severity: high
+    cwe: CWE-916
+    owasp: A02:2021
+    description: >
+      MD5 and SHA-1 are fast, unsalted general-purpose digests. Using either
+      for passwords is equivalent to no work factor at all.
+    applies_to:
+      index_buckets: [source]
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        flags: [ignorecase]
+        any_of:
+          - 'hashlib\.(?:md5|sha1)\s*\([^)]*(?:password|passwd|pwd)'
+          - '(?:md5|sha1)\s*\(\s*(?:password|passwd|pwd)\b'
+          - 'createHash\s*\(\s*["'']\s*(?:md5|sha1)\s*["'']'
+          - '(?:password|passwd|pwd)[^\n]{0,40}\b(?:md5|sha1)\s*\('
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Replace the digest with a purpose-built password hash (bcrypt, argon2,
+      scrypt). Existing hashes cannot be converted, so rehash on next
+      successful login and force a reset for accounts that never return.
+
+  - id: AUTH-005
+    name: Secure session cookie flags
+    severity: high
+    cwe: CWE-614
+    owasp: A05:2021
+    description: >
+      Where a session is configured, the session cookie should be marked
+      Secure and HttpOnly and given a SameSite policy.
+    applies_to:
+      index_buckets: [source, config]
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: session configuration site
+        # Only actual session machinery. A bare SECRET_KEY is not enough --
+        # a token-signing key in a stateless API is not a session, and
+        # reporting missing cookie flags there is a false positive.
+        pattern: '\b(?:app\.secret_key|SessionMiddleware|express-session|cookie-session|flask_session|Session\s*\(\s*app|SESSION_COOKIE|session\.permanent)|\bsession\s*\['
+      guard:
+        type: regex
+        description: paired with secure cookie flags
+        scope: project
+        any_of:
+          - 'SESSION_COOKIE_SECURE'
+          - 'SESSION_COOKIE_HTTPONLY'
+          - 'SESSION_COOKIE_SAMESITE'
+          - 'CSRF_COOKIE_SECURE'
+          - 'httpOnly\s*:\s*true'
+          - 'secure\s*:\s*true'
+          - 'sameSite\s*:\s*["'']'
+          - 'https_only\s*=\s*True'
+          - 'same_site\s*='
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: present
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Set the session cookie to Secure (HTTPS only), HttpOnly (not readable
+      from JavaScript) and SameSite=Lax or Strict. In Flask these are the
+      SESSION_COOKIE_* config keys; in express-session they are fields of the
+      cookie option object.
+
+  - id: AUTH-007
+    name: View-level authentication (Django)
+    severity: critical
+    cwe: CWE-306
+    owasp: A07:2021
+    description: >
+      Django routes are plain view functions, so the authentication check is a
+      decorator or a mixin on the view rather than anything attached to the
+      URL.
+    rationale: >
+      Added after the corpus showed AUTH-001 silently skipping every Django
+      project: its subject is a route decorator, and Django has none. This is
+      the extension case the rule format exists for -- a new file entry, no
+      engine change.
+    applies_to:
+      frameworks: [django]
+      languages: [python]
+      file_patterns:
+        - "**/views.py"
+        - "**/views/*.py"
+        - "**/api.py"
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: Django view function
+        pattern: '^\s*(?:async\s+)?def\s+\w+\s*\(\s*request\b'
+        exclude:
+          - '\bdef\s+(?:login|logout|signup|register|health|index|home)\b'
+      guards:
+        - type: regex
+          description: authenticated
+          proximity_lines: 5
+          proximity_lines_below: 0
+          stop_at: '^\s*$'
+          any_of:
+            - '@(?:login_required|permission_required|user_passes_test|staff_member_required)'
+            - '@method_decorator\s*\(\s*login_required'
+            - '@api_view[\s\S]*@permission_classes'
+        - type: regex
+          description: authenticated by a class-based mixin or DRF default
+          scope: file
+          any_of:
+            - '\bLoginRequiredMixin\b|\bPermissionRequiredMixin\b'
+            - 'permission_classes\s*=\s*\[[^\]]*IsAuthenticated'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Decorate each view that exposes or changes user data with
+      login_required, or use LoginRequiredMixin on class-based views. For DRF,
+      set DEFAULT_PERMISSION_CLASSES to IsAuthenticated so views are protected
+      by default and opting out is the explicit act.
+
+  - id: AUTH-006
+    name: Session expiry configured
+    severity: medium
+    cwe: CWE-613
+    owasp: A07:2021
+    description: >
+      A session that never expires is a credential with no revocation path.
+    applies_to:
+      index_buckets: [source, config]
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: session configuration site
+        pattern: '\b(?:app\.secret_key|SessionMiddleware|express-session|cookie-session|flask_session|Session\s*\(\s*app|SESSION_COOKIE|session\.permanent)|\bsession\s*\['
+      guard:
+        type: regex
+        description: given a lifetime
+        scope: project
+        any_of:
+          - 'PERMANENT_SESSION_LIFETIME'
+          - 'SESSION_COOKIE_AGE'
+          - 'SESSION_EXPIRE_AT_BROWSER_CLOSE'
+          - 'maxAge\s*:'
+          - 'max_age\s*='
+          - 'expires\s*[:=]'
+          - 'expires_delta'
+          - 'ACCESS_TOKEN_EXPIRE'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: present
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Give sessions and tokens an explicit lifetime and refresh them on
+      activity rather than issuing one that never expires.

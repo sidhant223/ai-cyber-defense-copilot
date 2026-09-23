@@ -1,0 +1,24 @@
+- id: copilot-scan
+  name: copilot scan (absent security controls)
+  description: >
+    Report which security controls are missing from this repository. Runs over
+    the whole tree rather than the staged files, because the controls are
+    app-wide: a limiter registered in one file protects routes declared in
+    another, and judging a file in isolation would report gaps that are not
+    there.
+  entry: copilot scan .
+  language: python
+  pass_filenames: false
+  always_run: true
+  stages: [pre-commit, pre-push, manual]
+
+- id: copilot-rules-validate
+  name: copilot rules validate
+  description: >
+    Check every rule file without scanning: required keys, legal severities
+    and verdicts, and that each regex compiles. For repositories that carry
+    their own rule set.
+  entry: copilot rules validate
+  language: python
+  pass_filenames: false
+  files: \.yaml$

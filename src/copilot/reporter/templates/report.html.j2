@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security posture report &mdash; {{ scan.root_path }}</title>
+<style>
+  :root {
+    --ink: #16181d;
+    --muted: #5c6470;
+    --line: #dfe3e8;
+    --bg: #ffffff;
+    --panel: #f6f7f9;
+    --absent: #b3261e;
+    --partial: #a86400;
+    --present: #1b6e3c;
+    --na: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem 1.5rem 4rem;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink); background: var(--bg);
+  }
+  main { max-width: 60rem; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.1rem; margin: 2.5rem 0 .75rem; padding-bottom: .35rem;
+       border-bottom: 2px solid var(--line); }
+  .sub { color: var(--muted); margin: 0 0 1.5rem; font-size: .9rem; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85em; }
+
+  .summary { display: flex; gap: 1.5rem; align-items: stretch; flex-wrap: wrap;
+             border: 1px solid var(--line); border-radius: 8px; padding: 1.25rem 1.5rem;
+             background: var(--panel); }
+  .score { font-size: 3rem; font-weight: 700; line-height: 1; }
+  .score small { display: block; font-size: .8rem; font-weight: 400; color: var(--muted); }
+  .score.good { color: var(--present); }
+  .score.fair { color: var(--partial); }
+  .score.poor { color: var(--absent); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+           gap: .5rem 1.5rem; flex: 1; font-size: .85rem; }
+  .facts div span { display: block; color: var(--muted); }
+
+  .tallies { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0 0; padding: 0; list-style: none; }
+  .tallies li { border: 1px solid var(--line); border-radius: 999px; padding: .15rem .7rem; font-size: .8rem; }
+
+  .badge { display: inline-block; border-radius: 4px; padding: .05rem .45rem;
+           font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+           text-transform: uppercase; border: 1px solid currentColor; }
+  .s-absent { color: var(--absent); }
+  .s-partial { color: var(--partial); }
+  .s-present { color: var(--present); }
+  .s-not_applicable { color: var(--na); }
+
+  details { border: 1px solid var(--line); border-left: 4px solid var(--line);
+            border-radius: 6px; margin: .5rem 0; background: #fff; }
+  details.absent { border-left-color: var(--absent); }
+  details.partial { border-left-color: var(--partial); }
+  details.present { border-left-color: var(--present); }
+  details.not_applicable { border-left-color: var(--na); }
+  summary { cursor: pointer; padding: .7rem 1rem; display: flex; gap: .6rem;
+            align-items: baseline; flex-wrap: wrap; }
+  summary::marker { color: var(--muted); }
+  summary .id { font-weight: 700; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  summary .name { flex: 1; min-width: 14rem; }
+  summary .sev { color: var(--muted); font-size: .78rem; text-transform: uppercase;
+                 letter-spacing: .04em; }
+  .body { padding: 0 1rem 1rem; border-top: 1px solid var(--line); }
+  .body p { margin: .75rem 0; }
+  .hint { background: var(--panel); border-radius: 6px; padding: .7rem .9rem;
+          font-size: .9rem; }
+  .hint strong { display: block; font-size: .75rem; text-transform: uppercase;
+                 letter-spacing: .05em; color: var(--muted); margin-bottom: .2rem; }
+
+  table.evidence { width: 100%; border-collapse: collapse; margin: .5rem 0 1rem;
+                   font-size: .85rem; }
+  table.evidence th { text-align: left; color: var(--muted); font-weight: 600;
+                      font-size: .75rem; text-transform: uppercase; letter-spacing: .04em;
+                      border-bottom: 1px solid var(--line); padding: .3rem .5rem; }
+  table.evidence td { border-bottom: 1px solid var(--line); padding: .4rem .5rem;
+                      vertical-align: top; }
+  table.evidence td.loc { white-space: nowrap; font-family: ui-monospace, Menlo, Consolas, monospace;
+                          font-size: .8rem; }
+  table.evidence pre { margin: .25rem 0 0; padding: .35rem .5rem; background: var(--panel);
+                       border-radius: 4px; overflow-x: auto; font-size: .8rem; }
+
+  .skipped { font-size: .85rem; color: var(--muted); }
+  .skipped li { margin: .2rem 0; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line);
+           color: var(--muted); font-size: .8rem; }
+
+  @media print {
+    body { padding: 0; font-size: 11pt; }
+    details { break-inside: avoid; }
+    details:not([open]) > .body { display: block; }
+    summary { list-style: none; }
+    .summary { background: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>Security posture report</h1>
+  <p class="sub"><code>{{ scan.root_path }}</code> &middot; generated {{ generated }}</p>
+
+  <section class="summary">
+    <div class="score {% if report.posture_score >= 80 %}good{% elif report.posture_score >= 50 %}fair{% else %}poor{% endif %}">
+      {{ report.posture_score }}
+      <small>posture score{% if report.grade %} &middot; grade {{ report.grade }}{% endif %}</small>
+    </div>
+    <div class="facts">
+      <div><span>Framework</span>{{ scan.framework or "unknown" }}</div>
+      <div><span>Language</span>{{ scan.language }}</div>
+      <div><span>Files scanned</span>{{ scan.files_scanned }}</div>
+      <div><span>Files skipped</span>{{ scan.skipped_files }}</div>
+      <div><span>Controls scored</span>{{ report.scored_findings | length }} of {{ report.findings | length }}</div>
+      <div><span>Scan time</span>{{ scan.scan_duration_ms }} ms</div>
+    </div>
+  </section>
+
+  <ul class="tallies">
+    <li class="s-absent"><strong>{{ counts.absent }}</strong> absent</li>
+    <li class="s-partial"><strong>{{ counts.partial }}</strong> partial</li>
+    <li class="s-present"><strong>{{ counts.present }}</strong> present</li>
+    <li class="s-not_applicable"><strong>{{ counts.not_applicable }}</strong> not applicable</li>
+    {% for sev in severities %}
+    {% if severity_counts[sev] %}
+    <li><strong>{{ severity_counts[sev] }}</strong> {{ sev }} gap{{ "s" if severity_counts[sev] != 1 }}</li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+
+  {% if report.grade_capped %}
+  <p class="sub" style="margin-top:1rem">
+    <strong>Grade capped at {{ report.grade }}:</strong> {{ report.grade_cap_reason }}.
+    A weighted average can sit high while a critical control is missing entirely.
+  </p>
+  {% endif %}
+
+  {% if report.partial_scope %}
+  <p class="sub" style="margin-top:1rem">
+    <strong>Grade withheld:</strong> this run covered
+    {{ report.categories_scanned | length }} of {{ report.categories_available }}
+    categories, so the score describes part of the application rather than all of it.
+  </p>
+  {% endif %}
+
+  {% if report.suppressed_findings %}
+  <p class="sub" style="margin-top:1rem">
+    <strong>{{ report.suppressed_findings | length }} finding(s) accepted:</strong>
+    {% for f in report.suppressed_findings %}
+    <code>{{ f.control_id }}</code> &mdash; {{ f.suppression_reason }}{{ "; " if not loop.last }}
+    {% endfor %}
+    Accepted findings are outside the score and the exit code.
+  </p>
+  {% endif %}
+
+  {% if scan.framework is none %}
+  <p class="sub" style="margin-top:1rem">
+    No framework was identified with confidence, so framework-specific controls were
+    not evaluated. They are listed under &ldquo;Controls not evaluated&rdquo; below.
+  </p>
+  {% endif %}
+
+  {% for group in groups %}
+  <h2>{{ group.title }}
+    <span class="sev" style="font-weight:400;font-size:.8rem;color:var(--muted)">
+      &mdash; {{ group.gaps }} gap{{ "s" if group.gaps != 1 }} of {{ group.findings | length }} control{{ "s" if group.findings | length != 1 }}
+    </span>
+  </h2>
+
+  {% for f in group.findings %}
+  <details class="{{ f.status.value }}" {% if f.is_gap %}open{% endif %}>
+    <summary>
+      <span class="id">{{ f.control_id }}</span>
+      <span class="name">{{ f.control_name }}</span>
+      <span class="sev">{{ f.severity.value }}</span>
+      <span class="badge s-{{ f.status.value }}">{{ f.status.value.replace("_", " ") }}</span>
+    </summary>
+    <div class="body">
+      <p>{{ f.message }}</p>
+
+      {% if f.evidence %}
+      <table class="evidence">
+        <thead><tr><th>Location</th><th>Evidence</th></tr></thead>
+        <tbody>
+        {% for ev in f.evidence %}
+          <tr>
+            <td class="loc">
+              {%- if ev.file_path -%}
+                {{ ev.file_path }}{% if ev.line_number %}:{{ ev.line_number }}{% endif %}
+              {%- else -%}
+                &mdash;
+              {%- endif -%}
+            </td>
+            <td>
+              {{ ev.note }}
+              {% if ev.snippet %}<pre>{{ ev.snippet }}</pre>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      {% if f.remediation_hint %}
+      <div class="hint">
+        <strong>Remediation</strong>
+        {{ f.remediation_hint }}
+      </div>
+      {% endif %}
+    </div>
+  </details>
+  {% endfor %}
+  {% endfor %}
+
+  {% if report.skipped_controls %}
+  <h2>Controls not evaluated</h2>
+  <ul class="skipped">
+    {% for entry in report.skipped_controls %}
+    <li><code>{{ entry.control_id }}</code> &mdash; {{ entry.reason }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <footer>
+    <p>
+      Posture score is a severity-weighted percentage of applicable controls satisfied:
+      <code>100 &times; &Sigma;(weight &times; credit) / &Sigma;(weight)</code>, with weights
+      5/3/2/1 for critical/high/medium/low and credit 1.0 for present, 0.5 for partial,
+      0.0 for absent. Controls marked not applicable are excluded from both sums.
+    </p>
+    <p>
+      Generated by ai-cyber-defense-copilot {{ report.schema_version }} &middot;
+      static analysis only: no code was executed and no network request was made.
+    </p>
+  </footer>
+
+</main>
+</body>
+</html>

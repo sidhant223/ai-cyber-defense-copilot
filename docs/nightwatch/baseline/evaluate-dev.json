@@ -1,0 +1,131 @@
+{
+  "schema_version": "1.0",
+  "split": "dev",
+  "reportable": false,
+  "manifest": "corpus/manifest.yaml",
+  "rules_dir": "C:\\Users\\hp\\OneDrive\\Desktop\\AI Cyber Defense Copilot\\src\\copilot\\rules",
+  "samples_evaluated": 8,
+  "overall": {
+    "tp": 71,
+    "fp": 0,
+    "fn": 0,
+    "tn": 121,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "by_category": {
+    "access_control": {
+      "tp": 15,
+      "fp": 0,
+      "fn": 0,
+      "tn": 25,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "authentication": {
+      "tp": 15,
+      "fp": 0,
+      "fn": 0,
+      "tn": 41,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "input_validation": {
+      "tp": 12,
+      "fp": 0,
+      "fn": 0,
+      "tn": 20,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "rate_limiting": {
+      "tp": 17,
+      "fp": 0,
+      "fn": 0,
+      "tn": 7,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "secret_management": {
+      "tp": 12,
+      "fp": 0,
+      "fn": 0,
+      "tn": 28,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    }
+  },
+  "confusion": [],
+  "samples": [
+    {
+      "name": "flask-notes-app",
+      "split": "dev",
+      "framework_expected": "flask",
+      "framework_detected": "flask",
+      "unlabelled": [],
+      "disagreements": []
+    },
+    {
+      "name": "express-todo-api",
+      "split": "dev",
+      "framework_expected": "express",
+      "framework_detected": "express",
+      "unlabelled": [],
+      "disagreements": []
+    },
+    {
+      "name": "fastapi-bookstore",
+      "split": "dev",
+      "framework_expected": "fastapi",
+      "framework_detected": "fastapi",
+      "unlabelled": [],
+      "disagreements": []
+    },
+    {
+      "name": "flask-file-share",
+      "split": "dev",
+      "framework_expected": "flask",
+      "framework_detected": "flask",
+      "unlabelled": [],
+      "disagreements": []
+    },
+    {
+      "name": "express-admin-panel",
+      "split": "dev",
+      "framework_expected": "express",
+      "framework_detected": "express",
+      "unlabelled": [],
+      "disagreements": []
+    },
+    {
+      "name": "django-blog",
+      "split": "dev",
+      "framework_expected": "django",
+      "framework_detected": "django",
+      "unlabelled": [],
+      "disagreements": []
+    },
+    {
+      "name": "fastapi-secure-tasks",
+      "split": "dev",
+      "framework_expected": "fastapi",
+      "framework_detected": "fastapi",
+      "unlabelled": [],
+      "disagreements": []
+    },
+    {
+      "name": "express-secure-notes",
+      "split": "dev",
+      "framework_expected": "express",
+      "framework_detected": "express",
+      "unlabelled": [],
+      "disagreements": []
+    }
+  ]
+}

@@ -1,0 +1,275 @@
+# Executable examples for authentication.yaml.
+#
+#   copilot rules test --control AUTH-001
+#
+# Each example is scanned through the real pipeline -- framework detection,
+# file index, detector -- and must reach the verdict it declares. Every
+# control needs at least one example that is a gap and one that is not,
+# because a regex that stops matching reports "absent" everywhere without
+# ever failing loudly.
+
+AUTH-001:
+  - name: decorated route is authenticated
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @login_required
+        @app.route("/notes")
+        def notes():
+            return "notes"
+
+  - name: undecorated route is a gap
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @app.route("/notes")
+        def notes():
+            return "notes"
+
+  - name: one of two routes decorated
+    expect: partial
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @login_required
+        @app.route("/notes")
+        def notes():
+            return "notes"
+
+        @app.route("/notes/<int:note_id>", methods=["DELETE"])
+        def delete_note(note_id):
+            return "", 204
+
+  - name: FastAPI dependency below the decorator counts
+    expect: present
+    files:
+      main.py: |
+        from fastapi import Depends, FastAPI
+        app = FastAPI()
+
+        @app.get("/tasks")
+        def list_tasks(user = Depends(get_current_user)):
+            return []
+
+  - name: public endpoints are not subjects
+    expect: not_applicable
+    files:
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+        @app.route("/login", methods=["POST"])
+        def login():
+            return "ok"
+
+        @app.route("/healthz")
+        def healthz():
+            return "ok"
+
+AUTH-002:
+  - name: middleware named on the route
+    expect: present
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2"}}
+      routes/notes.js: |
+        const express = require("express");
+        const router = express.Router();
+
+        router.get("/", requireAuth, listNotes);
+
+        module.exports = router;
+
+  - name: route with no middleware
+    expect: absent
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2"}}
+      routes/notes.js: |
+        const express = require("express");
+        const router = express.Router();
+
+        router.get("/", listNotes);
+
+        module.exports = router;
+
+  - name: router-wide use() covers every route in the file
+    expect: present
+    files:
+      package.json: |
+        {"dependencies": {"express": "^4.19.2"}}
+      routes/notes.js: |
+        const express = require("express");
+        const router = express.Router();
+
+        router.use(requireAuth);
+        router.get("/", listNotes);
+        router.delete("/:id", removeNote);
+
+        module.exports = router;
+
+AUTH-003:
+  - name: passwords handled and hashed
+    expect: present
+    files:
+      auth.py: |
+        import bcrypt
+
+        def register(password: str):
+            digest = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+            return digest
+
+  - name: password compared in plaintext
+    expect: absent
+    files:
+      auth.py: |
+        def login(user, password):
+            if user.password == password:
+                return True
+            return False
+
+  - name: auth code that never touches a password
+    expect: not_applicable
+    files:
+      auth.py: |
+        def login_url(next_page: str) -> str:
+            return f"/login?next={next_page}"
+
+  # Not the same outcome as the example above, and the difference is worth
+  # pinning: a file with nothing authentication-shaped in it never enters the
+  # category index, so the control is not judged at all rather than judged
+  # and found to have no subjects.
+  - name: a repository with no authentication code at all
+    expect: skipped
+    files:
+      report.py: |
+        def total(rows):
+            return sum(rows)
+
+AUTH-004:
+  - name: md5 over a password
+    expect: absent
+    files:
+      auth.py: |
+        import hashlib
+
+        def store(password):
+            return hashlib.md5(password.encode()).hexdigest()
+
+  - name: bcrypt instead of a bare digest
+    expect: present
+    files:
+      auth.py: |
+        import bcrypt
+
+        def store(password):
+            return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+
+AUTH-005:
+  - name: session with cookie flags
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask, session
+        app = Flask(__name__)
+        app.config["SESSION_COOKIE_SECURE"] = True
+        app.config["SESSION_COOKIE_HTTPONLY"] = True
+        app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+        def current_user():
+            return session["user_id"]
+
+  - name: session with no cookie flags
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, session
+        app = Flask(__name__)
+        app.secret_key = "dev"
+
+        def current_user():
+            return session["user_id"]
+
+  - name: token API has no session to configure
+    expect: not_applicable
+    files:
+      main.py: |
+        from fastapi import FastAPI
+        app = FastAPI()
+
+        @app.get("/tasks")
+        def tasks(token: str):
+            return []
+
+AUTH-006:
+  - name: session lifetime configured
+    expect: present
+    files:
+      app.py: |
+        from datetime import timedelta
+        from flask import Flask, session
+        app = Flask(__name__)
+        app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=30)
+
+        def current_user():
+            return session["user_id"]
+
+  - name: session that never expires
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, session
+        app = Flask(__name__)
+        app.secret_key = "dev"
+
+        def current_user():
+            return session["user_id"]
+
+AUTH-007:
+  - name: Django view behind login_required
+    expect: present
+    files:
+      requirements.txt: |
+        django==5.0.6
+      blog/views.py: |
+        from django.contrib.auth.decorators import login_required
+        from django.shortcuts import render
+
+        @login_required
+        def dashboard(request):
+            return render(request, "dashboard.html")
+
+  - name: Django view with no decorator
+    expect: absent
+    files:
+      requirements.txt: |
+        django==5.0.6
+      blog/views.py: |
+        from django.shortcuts import render
+
+        def dashboard(request):
+            return render(request, "dashboard.html")
+
+  - name: one of two views decorated
+    expect: partial
+    files:
+      requirements.txt: |
+        django==5.0.6
+      blog/views.py: |
+        from django.contrib.auth.decorators import login_required
+        from django.shortcuts import render
+
+        @login_required
+        def dashboard(request):
+            return render(request, "dashboard.html")
+
+        def drafts(request):
+            return render(request, "drafts.html")

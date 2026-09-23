@@ -1,0 +1,136 @@
+# Executable examples for input_validation.yaml. See authentication.yaml in
+# this directory for what these are and how they run.
+
+INPUT-001:
+  - name: body read and validated by a schema in the same file
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask, request
+        from marshmallow import Schema, fields
+        app = Flask(__name__)
+
+        class NoteSchema(Schema):
+            title = fields.Str(required=True)
+
+        @app.route("/notes", methods=["POST"])
+        def create():
+            data = NoteSchema().load(request.get_json())
+            return data
+
+  - name: body read straight into the handler
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, request
+        app = Flask(__name__)
+
+        @app.route("/notes", methods=["POST"])
+        def create():
+            title = request.get_json()["title"]
+            return {"title": title}
+
+  - name: typed models mean there is no raw read to judge
+    expect: not_applicable
+    files:
+      main.py: |
+        from fastapi import FastAPI
+        from pydantic import BaseModel
+        app = FastAPI()
+
+        class Note(BaseModel):
+            title: str
+
+        @app.post("/notes")
+        def create(note: Note):
+            return note
+
+INPUT-002:
+  - name: parameterised query
+    expect: present
+    files:
+      db.py: |
+        def get_user(cur, user_id):
+            cur.execute("SELECT id, email FROM users WHERE id = ?", (user_id,))
+            return cur.fetchone()
+
+  - name: query built by interpolation
+    expect: absent
+    files:
+      db.py: |
+        def search(cur, term):
+            cur.execute(f"SELECT id FROM notes WHERE title LIKE '%{term}%'")
+            return cur.fetchall()
+
+  - name: one of two queries interpolated
+    expect: partial
+    files:
+      db.py: |
+        def get_user(cur, user_id):
+            cur.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+            return cur.fetchone()
+
+        def search(cur, term):
+            cur.execute("SELECT id FROM notes WHERE title = '" + term + "'")
+            return cur.fetchall()
+
+INPUT-003:
+  - name: upload restricted by extension and size
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask, request
+        from werkzeug.utils import secure_filename
+        app = Flask(__name__)
+        app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+        ALLOWED_EXTENSIONS = {"png", "pdf"}
+
+        @app.route("/upload", methods=["POST"])
+        def upload():
+            f = request.files["file"]
+            f.save(secure_filename(f.filename))
+            return "ok"
+
+  - name: upload with no restriction
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, request
+        app = Flask(__name__)
+
+        @app.route("/upload", methods=["POST"])
+        def upload():
+            f = request.files["file"]
+            f.save("/srv/uploads/" + f.filename)
+            return "ok"
+
+  - name: no upload handling
+    expect: not_applicable
+    files:
+      app.py: |
+        from flask import Flask, request
+        app = Flask(__name__)
+
+        @app.route("/notes")
+        def notes():
+            return {"page": request.args.get("page")}
+
+INPUT-004:
+  - name: shell execution on request data
+    expect: absent
+    files:
+      tools.py: |
+        import os
+
+        def convert(request):
+            os.system("convert " + request.args["path"])
+
+  - name: argument list instead of a shell
+    expect: present
+    files:
+      tools.py: |
+        import subprocess
+
+        def convert(request):
+            path = request.args["path"]
+            subprocess.run(["convert", path], shell=False, check=True)

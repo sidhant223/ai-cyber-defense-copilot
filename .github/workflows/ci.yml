@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: tests (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install
+        run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Unit and integration tests
+        run: python -m pytest -q
+      - name: Rule files are well formed
+        run: copilot rules validate
+      - name: Every control's examples still get the verdict they declare
+        run: copilot rules test
+      - name: Detection has not drifted from the labelled corpus
+        run: copilot evaluate --split dev
+
+  self-scan:
+    name: scan this repository with itself
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write      # for upload-sarif
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install --disable-pip-version-check .
+
+      # The gate. Two findings are accepted in config/self-scan.copilot.yaml
+      # with written reasons; anything new fails this step.
+      - name: Posture gate
+        run: copilot scan . --config config/self-scan.copilot.yaml
+
+      - name: Report to the job summary
+        if: always()
+        run: |
+          copilot scan . --config config/self-scan.copilot.yaml \
+            --format markdown --exit-zero >> "$GITHUB_STEP_SUMMARY"
+
+      - name: SARIF for code scanning
+        if: always()
+        run: |
+          copilot scan . --config config/self-scan.copilot.yaml \
+            --format sarif -o copilot.sarif --exit-zero
+      - name: Save SARIF report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilot-sarif
+          path: copilot.sarif
+          if-no-files-found: warn
+      - name: Upload SARIF to code scanning (opt-in)
+        if: ${{ always() && vars.ENABLE_CODE_SCANNING == 'true' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: copilot.sarif
+          category: copilot

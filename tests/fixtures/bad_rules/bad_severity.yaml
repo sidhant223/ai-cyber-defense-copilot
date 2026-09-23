@@ -1,0 +1,18 @@
+category: bad_severity_fixture
+description: fixture for `copilot rules validate` -- one control with an illegal severity.
+
+controls:
+  - id: BADSEV-001
+    name: A control with an illegal severity
+    severity: severe
+    applies_to: {}
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'some_pattern'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: n/a

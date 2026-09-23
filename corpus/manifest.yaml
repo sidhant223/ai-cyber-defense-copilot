@@ -1,0 +1,341 @@
+# Ground truth for the labelled corpus.
+#
+# One entry per sample. `expected` maps control id -> the status a correct
+# scanner should report, established by reading the code, not by running the
+# tool. `skipped` lists the controls the scanner should not judge at all
+# (wrong framework, no applicable files). Label every control in one of the
+# two: `copilot evaluate` excludes a control found in neither from the numbers
+# and only warns, so a forgotten label silently shrinks a holdout measurement.
+#
+# Status vocabulary matches copilot.models.Status:
+#   present | absent | partial | not_applicable
+#
+# `split` is required on every entry:
+#   dev     - samples the rules were tuned against. Regression fixtures for
+#             tests/test_end_to_end.py; their numbers are not reportable as
+#             accuracy.
+#   holdout - labelled by hand before the scanner is ever run on them, and
+#             never used to change a rule. Measured only with
+#             `copilot evaluate --split holdout`.
+#
+# See README.md in this directory for how the samples were produced and how
+# the audit was done.
+
+version: 1
+generated_by: "Claude Opus 5 via Claude Code"
+audited: 2026-08-26
+
+samples:
+
+  - name: flask-notes-app
+    framework: flask
+    language: python
+    source: "generated from PROMPT.md; no security guidance in the prompt"
+    kind: realistic
+    split: dev
+    expected:
+      AUTH-001: partial          # 4 of 6 routes decorated; PUT and DELETE are not
+      AUTH-003: present          # werkzeug generate_password_hash
+      AUTH-004: present          # no md5/sha1 anywhere
+      AUTH-005: absent           # session in use, no SESSION_COOKIE_* flags
+      AUTH-006: absent           # no PERMANENT_SESSION_LIFETIME
+      AUTH-008: absent           # cookie session (app.py:60), no CSRFProtect and no Flask-WTF
+      AUTH-009: not_applicable   # issues no tokens; Flask's own session cookie only
+      AUTH-010: absent           # /register hashes request.form password, no length check
+      INPUT-001: absent          # request.form read directly, no schema
+      INPUT-002: partial         # 7 of 8 queries parameterised; /search interpolates
+      INPUT-003: not_applicable  # no upload handling
+      INPUT-004: present         # no shell execution
+      RATE-001: absent
+      RATE-002: absent           # /login and /register carry no limit
+      RATE-003: absent
+      SECRET-001: present
+      SECRET-002: present
+      SECRET-003: present        # secret_key is low entropy; SECRET-005 catches it
+      SECRET-004: not_applicable # no .env in the tree
+      SECRET-005: absent         # app.secret_key assigned a literal
+      AC-001: absent             # CORS(app) allows any origin by default
+      AC-002: absent             # app.run(debug=True)
+      AC-003: absent
+      AC-004: absent             # /admin/users has login_required but no role check
+      AC-006: present          # fixed error strings; debug=True is AC-002's business
+    skipped: [AUTH-002, AUTH-007, AC-005]
+    notes: >
+      The interesting case for AUTH-001: authentication was applied to most
+      routes and forgotten on two. A binary present/absent scanner would call
+      this "present" and miss both.
+
+  - name: express-todo-api
+    framework: express
+    language: javascript
+    source: "generated from PROMPT.md; the prompt asked for JWT auth and a .env"
+    kind: realistic
+    split: dev
+    expected:
+      AUTH-002: partial          # GET / and POST / have requireAuth; search, put, delete do not
+      AUTH-003: present          # bcrypt
+      AUTH-004: present
+      AUTH-005: not_applicable   # JWT, no server-side session
+      AUTH-006: not_applicable
+      AUTH-008: not_applicable   # bearer JWT in the Authorization header, no session
+      AUTH-009: absent           # jwt.sign with no expiresIn and no exp claim (routes/auth.js:27)
+      AUTH-010: absent           # /register bcrypt-hashes any password (routes/auth.js:10)
+      INPUT-001: absent          # req.body destructured directly
+      INPUT-002: partial         # 6 of 7 parameterised; /search uses a template literal
+      INPUT-003: not_applicable
+      INPUT-004: present
+      RATE-001: absent
+      RATE-002: absent
+      RATE-003: absent
+      SECRET-001: present        # no recognised provider key format
+      SECRET-002: absent         # .env holds a postgres URL with the password in it
+      SECRET-003: present        # JWT_SECRET is low entropy
+      SECRET-004: absent         # .env committed, no .gitignore at all
+      SECRET-005: absent         # JWT_SECRET literal, duplicated across two files
+      AC-001: absent             # cors() with no options
+      AC-002: present
+      AC-003: absent
+      AC-004: not_applicable
+      AC-006: absent           # error middleware returns err.message and err.stack (app.js:22)
+    skipped: [AUTH-001, AUTH-007, AC-005]
+    notes: >
+      The prompt explicitly asked for a .env, and the generated project put a
+      real password in it and never wrote a .gitignore. That is the omission
+      SECRET-004 exists for.
+
+  - name: fastapi-bookstore
+    framework: fastapi
+    language: python
+    source: "generated from PROMPT.md"
+    kind: realistic
+    split: dev
+    expected:
+      AUTH-001: partial          # only POST /books and GET /export take a dependency
+      AUTH-003: absent           # passwords handled, but md5 is not password hashing
+      AUTH-004: absent           # hashlib.md5(form.password)
+      AUTH-005: not_applicable   # token-based, no session
+      AUTH-006: not_applicable
+      AUTH-008: not_applicable   # OAuth2PasswordBearer token, no cookie session
+      AUTH-009: not_applicable   # token is an unsigned sha256 kept in a sessions table
+      AUTH-010: not_applicable   # only a login handler; nothing sets a new password
+      INPUT-001: not_applicable  # bodies arrive as Pydantic models, never read raw
+      INPUT-002: present         # every query parameterised
+      INPUT-003: not_applicable
+      INPUT-004: absent          # subprocess.run(..., shell=True) on a query parameter
+      RATE-001: absent
+      RATE-002: absent
+      RATE-003: absent
+      SECRET-001: present
+      SECRET-002: present
+      SECRET-003: present
+      SECRET-004: not_applicable
+      SECRET-005: absent         # SECRET_KEY literal
+      AC-001: absent             # allow_origins=["*"] with allow_credentials=True
+      AC-002: present
+      AC-003: absent
+      AC-004: not_applicable
+      AC-006: present          # HTTPException details are fixed strings
+    skipped: [AUTH-002, AUTH-007, AC-005]
+    notes: >
+      Shows the difference between INPUT-001 and INPUT-002 clearly: Pydantic
+      models make body validation not-applicable rather than absent, because
+      there is no raw read to judge.
+
+  - name: flask-file-share
+    framework: flask
+    language: python
+    source: "generated from PROMPT.md; the prompt asked for S3 uploads"
+    kind: realistic
+    split: dev
+    expected:
+      AUTH-001: partial          # /upload and /uploads guarded; /download and DELETE are not
+      AUTH-003: present          # generate_password_hash
+      AUTH-004: present
+      AUTH-005: absent
+      AUTH-006: absent
+      AUTH-008: absent           # session['user_id'] at login (app.py:50), no CSRF defence
+      AUTH-009: not_applicable   # only an S3 presigned URL, not an auth token
+      AUTH-010: absent           # /signup hashes request.form password, no length check
+      INPUT-001: absent
+      INPUT-002: not_applicable  # SQLAlchemy ORM, no SQL in source
+      INPUT-003: absent          # request.files with no type or size restriction
+      INPUT-004: present
+      RATE-001: absent
+      RATE-002: absent
+      RATE-003: absent
+      SECRET-001: absent         # a live-format AWS access key id in source
+      SECRET-002: absent         # SQLALCHEMY_DATABASE_URI with an embedded password
+      SECRET-003: absent         # high-entropy literal alongside the key
+      SECRET-004: not_applicable
+      SECRET-005: absent
+      AC-001: present            # no CORS configured at all, so no wildcard
+      AC-002: absent             # app.run(..., debug=True)
+      AC-003: absent
+      AC-004: not_applicable
+      AC-006: present          # fixed error strings only
+    skipped: [AUTH-002, AUTH-007, AC-005]
+    notes: >
+      The AWS secret access key in this sample is the canonical documentation
+      example value, and is correctly NOT reported by SECRET-001: the rule
+      allowlists it. The access key id next to it is a realistic format and is
+      reported. That pair is a deliberate precision test.
+
+  - name: express-admin-panel
+    framework: express
+    language: javascript
+    source: "generated from PROMPT.md"
+    kind: realistic
+    split: dev
+    expected:
+      AUTH-002: present          # router mounted as app.use('/admin', requireLogin, ...)
+      AUTH-003: present          # bcrypt
+      AUTH-004: present
+      AUTH-005: absent           # express-session with no cookie options
+      AUTH-006: absent
+      AUTH-008: absent           # express-session (server.js:18), no CSRF token on admin POSTs
+      AUTH-009: not_applicable   # express-session only, no tokens issued
+      AUTH-010: not_applicable   # only /login; nothing creates staff or sets a password
+      INPUT-001: absent
+      INPUT-002: partial         # 7 of 8 parameterised; customer search interpolates
+      INPUT-003: not_applicable
+      INPUT-004: present
+      RATE-001: absent
+      RATE-002: absent
+      RATE-003: absent
+      SECRET-001: present
+      SECRET-002: present        # the DB password is an object field, not a URL
+      SECRET-003: present
+      SECRET-004: not_applicable
+      SECRET-005: absent         # session secret and DB password both literals
+      AC-001: present
+      AC-002: present
+      AC-003: absent
+      AC-004: not_applicable     # see notes
+      AC-006: present          # no error handler; fixed error strings
+    skipped: [AUTH-001, AUTH-007, AC-005]
+    notes: >
+      Two known limitations are visible here and are recorded deliberately.
+      AUTH-002 reads as present because the authentication middleware is named
+      where the router is mounted, in another file; the scanner cannot tell
+      which router that mount refers to. AC-004 reads as not-applicable
+      because the admin prefix lives on the mount, so no route path in
+      routes/admin.js contains "/admin". Both need cross-module resolution,
+      which is out of scope. See docs/controls.md.
+
+  - name: django-blog
+    framework: django
+    language: python
+    source: "generated from PROMPT.md"
+    kind: realistic
+    split: dev
+    expected:
+      AUTH-003: present          # django.contrib.auth hashes passwords
+      AUTH-004: present
+      AUTH-005: absent           # SessionMiddleware with no SESSION_COOKIE_* settings
+      AUTH-006: absent
+      AUTH-007: partial          # 3 of 7 views decorated with login_required
+      AUTH-008: absent           # contrib.auth sessions, CsrfViewMiddleware missing from MIDDLEWARE
+      AUTH-009: not_applicable   # server-side Django sessions only
+      AUTH-010: not_applicable   # no view accepts a new password; see corpus/README.md
+      INPUT-001: absent          # request.POST read directly, no form or serializer
+      INPUT-002: absent          # the one raw query uses % interpolation
+      INPUT-003: not_applicable
+      INPUT-004: present
+      RATE-001: absent
+      RATE-002: not_applicable   # no credential endpoint of its own
+      RATE-003: absent
+      SECRET-001: present
+      SECRET-002: present
+      SECRET-003: absent         # the django-insecure SECRET_KEY literal
+      SECRET-004: not_applicable
+      SECRET-005: absent         # SECRET_KEY and DATABASES PASSWORD both literals
+      AC-001: present
+      AC-002: absent             # DEBUG = True
+      AC-003: absent
+      AC-004: absent             # moderate_delete_comment has login_required, no staff check
+      AC-005: absent             # ALLOWED_HOSTS = ["*"]
+      AC-006: present          # responses built from model fields; DEBUG=True is AC-002's business
+    skipped: [AUTH-001, AUTH-002]
+    notes: >
+      This sample is why AUTH-007 exists. AUTH-001 matches route decorators,
+      and Django has none, so every Django project was silently skipped. The
+      fix was a new control in the same YAML file, with no change to the
+      engine -- which is the extensibility claim being tested.
+
+  - name: fastapi-secure-tasks
+    framework: fastapi
+    language: python
+    source: "generated from PROMPT.md; the prompt asked for the controls"
+    kind: negative-control
+    split: dev
+    expected:
+      AUTH-001: present
+      AUTH-003: present
+      AUTH-004: present
+      AUTH-005: not_applicable
+      AUTH-006: not_applicable
+      AUTH-008: not_applicable   # HTTPBearer JWT, no cookie session
+      AUTH-009: present          # the only issuer sets exp, 30 minutes (auth.py:44)
+      AUTH-010: not_applicable   # min_length=12 is on the login model; no handler sets a password
+      INPUT-001: not_applicable
+      INPUT-002: present
+      INPUT-003: not_applicable
+      INPUT-004: present
+      RATE-001: present
+      RATE-002: present
+      RATE-003: present
+      SECRET-001: present
+      SECRET-002: present
+      SECRET-003: present
+      SECRET-004: not_applicable
+      SECRET-005: present          # SECRET_KEY and DATABASE_URL both read from os.environ
+      AC-001: present
+      AC-002: present
+      AC-003: present
+      AC-004: present
+      AC-006: present          # fixed details; the PyJWTError text is dropped
+    skipped: [AUTH-002, AUTH-007, AC-005]
+    expected_score: 100
+    notes: >
+      Negative control. Zero gaps, so the whole report is green. A scanner
+      that cannot produce this output is not measuring anything.
+
+  - name: express-secure-notes
+    framework: express
+    language: javascript
+    source: "generated from PROMPT.md; the prompt asked for the controls"
+    kind: negative-control
+    split: dev
+    expected:
+      AUTH-002: present
+      AUTH-003: present
+      AUTH-004: present
+      AUTH-005: present
+      AUTH-006: present
+      AUTH-008: absent           # express-session; SameSite=lax alone is not a CSRF defence
+      AUTH-009: not_applicable   # session cookie maxAge is not an issued token
+      AUTH-010: present          # /register validates z.string().min(12) (routes/auth.js:10)
+      INPUT-001: partial         # see notes -- a true finding, not a false positive
+      INPUT-002: present
+      INPUT-003: not_applicable
+      INPUT-004: present
+      RATE-001: present
+      RATE-002: present
+      RATE-003: present
+      SECRET-001: present
+      SECRET-002: present
+      SECRET-003: present
+      SECRET-004: not_applicable
+      SECRET-005: present          # session secret and DB password both from process.env
+      AC-001: present
+      AC-002: present
+      AC-003: present
+      AC-004: present
+      AC-006: present          # global handler returns a fixed 'internal error'
+    skipped: [AUTH-001, AUTH-007, AC-005]
+    notes: >
+      Second negative control, and not a perfect score. routes/admin.js reads
+      req.params.id with no zod schema in that file, while every other route
+      module validates. That is a real, if minor, gap and the manifest records
+      it as one rather than tuning it away: a corpus that only contains
+      findings the scanner already gets right measures nothing.

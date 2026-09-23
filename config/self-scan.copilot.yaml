@@ -1,0 +1,37 @@
+# Scanning this repository with its own scanner, in CI.
+#
+#   copilot scan . --config config/self-scan.copilot.yaml
+#
+# Three parts of this tree would make that meaningless, and each is excluded
+# for a reason rather than to make the number look better:
+#
+# * corpus/ is deliberately vulnerable. Those samples are the test data; the
+#   tool reporting their gaps is it working, not this repository failing.
+# * src/copilot/rules/ holds regexes and, under tests/, example code with
+#   key-shaped fixtures in it. A pattern that matches secrets reads as a
+#   secret to an entropy check.
+# * tests/ and docs/nightwatch/ are fixtures and captured output.
+#
+# What is left is the tool's own source, which is what a self-scan should
+# actually be judging.
+ignore_paths:
+  - "corpus/**"
+  - "src/copilot/rules/**"
+  - "tests/**"
+  - "docs/nightwatch/**"
+  - "report.html"
+
+# Two findings on the tool's own source, accepted with reasons rather than
+# excluded quietly. Both are the documented cost of matching lines with
+# regexes instead of parsing them.
+suppress:
+  - control: AC-004
+    reason: >
+      The two matches are route decorators inside docstrings -- examples that
+      document the rule language, not routes that serve traffic. Regex cannot
+      tell a docstring from code, which docs/controls.md records as a limit.
+  - control: RATE-003
+    reason: >
+      This is a command line tool with no HTTP server, so there is no request
+      rate to limit. The control has no framework to key on and so cannot
+      work this out for itself.
