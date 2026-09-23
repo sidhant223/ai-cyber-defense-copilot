@@ -21,7 +21,7 @@ ignore_paths:
   - "docs/nightwatch/**"
   - "report.html"
 
-# Two findings on the tool's own source, accepted with reasons rather than
+# Three findings on the tool's own source, accepted with reasons rather than
 # excluded quietly. Both are the documented cost of matching lines with
 # regexes instead of parsing them.
 suppress:
@@ -32,6 +32,14 @@ suppress:
       tell a docstring from code, which docs/controls.md records as a limit.
   - control: RATE-003
     reason: >
-      This is a command line tool with no HTTP server, so there is no request
-      rate to limit. The control has no framework to key on and so cannot
-      work this out for itself.
+      The only HTTP server here is web/server.py: a single-user tool bound to
+      127.0.0.1 that refuses non-local Host and cross-site requests. There is
+      no public request rate to limit. The control has no framework to key on
+      and so cannot work this out for itself.
+  - control: AC-006
+    reason: >
+      The matches are the browser UI (web/static/*.js) showing `e.message` from
+      the local server's JSON errors. Those messages are fixed, user-facing
+      ScanError text -- never exception detail or stack traces -- and client
+      code displaying an error is not a server response leaking one. Regex
+      cannot tell client from server code.

@@ -321,7 +321,8 @@ ordinary in a Python package.
 
 Two findings there are accepted with reasons rather than excluded: route
 decorators inside docstrings, which regex cannot distinguish from code, and
-rate limiting for a tool with no HTTP server.
+rate limiting for a local single-user server bound to 127.0.0.1, and the
+browser UI displaying the server's fixed error messages.
 
 ## What is deliberately not here
 

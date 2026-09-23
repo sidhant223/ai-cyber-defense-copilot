@@ -17,9 +17,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.4"]
-# The web UI is a presentation layer over the same pipeline the CLI calls.
-# It is optional so the scanner itself stays a stdlib-first dependency set.
-web = ["streamlit>=1.30"]
+# The web UI (web/server.py) is stdlib only, so it needs no extra. The empty
+# extra keeps `pip install -e ".[web]"` from older instructions working.
+web = []
 
 [project.scripts]
 copilot = "copilot.cli:main"
