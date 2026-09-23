@@ -1,6 +1,6 @@
 # AI Cyber Defense Copilot
 
-A command-line tool that scans a codebase and reports which **security
+A tool that scans a codebase and reports which **security
 controls are absent** — not which lines are buggy.
 
 That distinction is the whole project. A linter finds bad code that exists.
@@ -13,54 +13,146 @@ repo path ─→ SCANNER ─→ DETECTORS (×5) ─→ REPORTER ─→ posture r
               there        missing           reads
 ```
 
-## Quick start: launch the browser app
+It ships as a **browser app** you run on your own machine and a **CLI** for
+terminals and CI. Both use the same scanner, so they always agree.
 
-Requirements: **Python 3.11 or newer**, Git, and an internet connection for
-the initial dependency installation. Python 3.12 is a good default.
-Scanning runs locally: no API key, `.env` file, database, Node.js, or Ruflo
-setup is required. The applications in `corpus/samples/` are scanner fixtures;
-you do not need to install or start them.
+**Contents:** [Run the app](#run-the-app-step-by-step) ·
+[Use the app](#use-the-app-step-by-step) · [The screens](#the-screens) ·
+[Troubleshooting](#troubleshooting) · [Command line](#command-line-installation) ·
+[CI](#in-ci) · [How scoring works](#posture-score) · [Tests](#tests)
 
-Clone this repository, then follow the commands for your operating system:
+## Run the app, step by step
+
+**You need:** Python **3.11 or newer** (3.12 is a good default) and Git. An
+internet connection is only needed once, to install. No API key, `.env` file,
+database, Node.js or account is required, and scanning never leaves your
+machine. The apps in `corpus/samples/` are test fixtures; you do not install or
+run them.
+
+### 1. Get the code
 
 ```bash
 git clone https://github.com/sidhant223/ai-cyber-defense-copilot.git
 cd ai-cyber-defense-copilot
 ```
 
-### Windows (PowerShell)
+### 2. Install (once)
+
+**Windows (PowerShell)**
 
 ```powershell
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e ".[web,dev]"
-.\.venv\Scripts\python.exe -m streamlit run web/streamlit_app.py --server.address 127.0.0.1
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
-These commands use the virtual environment directly, so PowerShell script
-activation and execution-policy changes are unnecessary.
+These use the virtual environment directly, so no script activation or
+execution-policy change is needed.
 
-### macOS / Linux
+**macOS / Linux**
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e ".[web,dev]"
-python -m streamlit run web/streamlit_app.py --server.address 127.0.0.1
+python -m pip install -e ".[dev]"
 ```
 
-Open **http://localhost:8501**. In the **Scan** tab, choose a bundled sample
-and click **Scan**, or supply a local repository path or ZIP archive. Try
-`fastapi-secure-tasks` for a sample with zero reported gaps, then
-`flask-notes-app` to see missing controls. Stop the server with **Ctrl+C**.
-To launch again later, return to this repository and rerun the Streamlit
-command (activate `.venv` first on macOS/Linux).
+### 3. Start the app
+
+```powershell
+.\.venv\Scripts\python.exe web\server.py      # Windows
+```
+
+```bash
+python web/server.py                          # macOS / Linux (with .venv active)
+```
+
+Your browser opens **http://127.0.0.1:8000** by itself. Keep the terminal
+open while you use the app.
+
+### 4. Stop it, and start it again later
+
+Press **Ctrl+C** in that terminal to stop. Next time, open a terminal in the
+repository folder and repeat only step 3 (on macOS/Linux run
+`source .venv/bin/activate` first).
+
+**Options:** `--port 8001` to use another port, `--no-browser` to stop it
+opening a browser tab. The server listens on 127.0.0.1 only and refuses
+requests that do not address it as `localhost`, so other machines and other
+websites cannot reach it.
+
+## Use the app, step by step
+
+The same guide is built into the app: open **Guide** in the menu (☰).
+
+1. **Open Scan** from the menu.
+2. **Choose what to scan:** a bundled *Corpus sample* (start with
+   `flask-notes-app`), a *Local folder* (paste its full path) or *Upload a
+   .zip* (drag it onto the page). Nothing you scan is executed.
+3. **Optionally narrow the scope.** Scope chips limit the categories that are
+   scored and withhold the grade. Display filters only change what is listed,
+   never the score.
+4. **Press Scan.** The report opens with a score from 0 to 100 and a grade from A to F.
+5. **Open a finding** to see the exact lines of code, what is missing and how
+   to fix it. *Fix prompt* gives a paragraph to paste into your editor or
+   coding assistant.
+6. **Check Routes** for every endpoint's authentication, rate limit and role check.
+7. **Look at Evaluation** for this project's statistics: per-category scores,
+   gap confidence, and how it compares with the bundled samples. For a bundled
+   sample it also compares the result with the hand-written labels.
+8. **Accept a risk on purpose** (optional): *Accepted* builds a suppression
+   entry with a reason and shows the new score. Copy it into your project;
+   the app never edits your files.
+9. **Export** with the HTML, JSON, SARIF or Markdown buttons on the report.
+   Reports last only until the server stops, so download the ones you keep.
+10. **Fix, then scan again** to see the score move.
+
+A clean report means none of the 28 checks found a gap. It is not proof that
+a project is secure.
+
+## The screens
+
+| Screen | What it shows |
+|---|---|
+| **Home** | Latest score, the five gaps to fix first, this session's scans. |
+| **Scan** | Pick a bundled sample, a local folder or a `.zip`; scope and display filters; the equivalent CLI command. |
+| **Report** | Score, a weight bar with one segment per control, findings grouped by category, the real source lines behind each finding, remediation, fix prompt, downloads. |
+| **Routes** | Every route handler and whether it has authentication, a credential rate limit and a role check. |
+| **Accepted** | Suppressions in force, and a form that writes a new one and previews its effect on the score. |
+| **Rules** | All 28 controls, each with its YAML definition, verdict mapping and status in the current scan. |
+| **Evaluation** | *This project:* statistics for the latest scan (and ground truth when it is a labelled sample). *Corpus:* the dev-split evaluation of all eight samples. |
+| **How it works / Guide** | Scoring, limits, and these instructions. |
+
+Light and dark themes are in the top bar. The menu (☰) collapses on desktop
+and slides over the page on phones and tablets.
+
+**How it is built:** `web/server.py` is a standard-library HTTP server with a
+small JSON API; `web/static/` is plain HTML, CSS and JavaScript with no build
+step. It calls the same `scan()` and `run_all()` as the CLI through
+`web/scan_service.py`, so there is no second implementation to drift. Text
+from a scanned repository is always HTML-escaped before it reaches the page.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `py` or `python3` is not found | Install Python 3.11+ and reopen your terminal. On Windows, try `python` if the `py` launcher is unavailable. |
+| Linux cannot create a virtual environment | Install your distribution's Python venv package, then rerun `python3 -m venv .venv`. |
+| `No module named copilot` | Run the install command with the same virtual-environment Python used to start the app. |
+| `web/server.py` cannot be found | Open the terminal in the cloned repository folder first. |
+| The browser did not open | Open http://127.0.0.1:8000 yourself. |
+| Port 8000 is in use | Start with `--port 8001` and open http://127.0.0.1:8001. |
+| "Requests must address this server as localhost" | Use `127.0.0.1` or `localhost` in the address, not another host name. |
+| The page says it cannot reach the local server | The terminal running `web/server.py` was closed; start it again. |
+| `copilot` is not recognized | Use the virtual environment's executable, or `python -m copilot.cli`. |
+| A path contains spaces | Paste it as-is in the app; on the CLI quote it: `copilot scan "C:/Projects/My App"`. |
+| Clone fails for a private repository | Sign in to GitHub with an account that has access to this repository. |
 
 ## Command-line installation
 
-If you only need the CLI, install `-e .` instead of `-e ".[web,dev]"` in the
-virtual environment above. `[web]` adds the browser UI; `[dev]` adds pytest.
+If you only need the CLI, install `-e .` instead of `-e ".[dev]"` in the
+virtual environment above. `[dev]` adds pytest; the browser app needs nothing extra.
 
 The examples below use `copilot` from an activated virtual environment.
 On Windows, you can replace it with `.\.venv\Scripts\copilot.exe` without
@@ -75,19 +167,6 @@ copilot scan corpus/samples/flask-notes-app --format html -o report.html --exit-
 The first command should report **0 gaps** and **score 100**. Open
 `report.html` in a browser to view the second command's findings. A scan that
 finds gaps normally exits with code `1`; that is a scan result, not a crash.
-
-### Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| `py` or `python3` is not found | Install Python 3.11+ and reopen your terminal. On Windows, try `python` if the `py` launcher is unavailable. |
-| Linux cannot create a virtual environment | Install your distribution's Python venv package, then rerun `python3 -m venv .venv`. |
-| `No module named streamlit` or `copilot` | Run the install command with the same virtual-environment Python used to launch the app. |
-| `copilot` is not recognized | Use the virtual environment's executable, or `python -m copilot.cli`. |
-| `web/streamlit_app.py` cannot be found | Change into the cloned repository root before launching. |
-| Port 8501 is in use | Add `--server.port 8502` and open http://localhost:8502. |
-| A path contains spaces | Quote it, for example `copilot scan "C:/Projects/My App"`. |
-| Clone fails for a private repository | Sign in to GitHub with an account that has access to this repository. |
 
 ## Use
 
@@ -218,31 +297,7 @@ the tool reports every route behind it as unauthenticated.
 
 ## Web UI
 
-For a point-and-click version — pick a folder, hit Scan, read the findings in
-the browser:
-
-```bash
-python -m pip install -e ".[web]"
-python -m streamlit run web/streamlit_app.py --server.address 127.0.0.1
-```
-
-Opens on <http://localhost:8501>. Three tabs:
-
-- **Scan** — choose a corpus sample, type a local path, or upload a `.zip`.
-  Filter by category and severity, then download the HTML or JSON report.
-- **Rules** — all 28 controls in a table; pick one to see its subject regex,
-  guards, scopes, verdict mapping and remediation. This is `rules explain`
-  with a mouse.
-- **How it works** — the status vocabulary, the scoring formula, and the
-  known limits.
-
-Reports download as HTML, JSON, SARIF or Markdown. Everything the scanned
-repository produced is HTML-escaped before it reaches the page: an evidence
-note quotes a matched line, and a scanned file can contain anything.
-
-It is a presentation layer only. It calls `scan()` and `run_all()` — the same
-two functions `cli.py` calls — so there is no second implementation to drift.
-Nothing about detection lives in `web/`.
+See [Run the app](#run-the-app-step-by-step) and [The screens](#the-screens).
 
 ## What it reports
 
@@ -442,26 +497,31 @@ copilot evaluate --split dev
 Unit tests per detector, all four verdict paths through the rule engine, CLI
 exit codes and formats, suppression and grade rules, the route inventory, and
 an integration pass asserting the full pipeline against the dev samples in
-`corpus/manifest.yaml`. Every false positive found during development became a
+`corpus/manifest.yaml`. `tests/test_web.py` starts the web server on a free port and drives
+its API over HTTP, including the localhost-only request guard. Every false positive found during development became a
 permanent regression test.
 
 The tool also scans itself in CI:
 
 ```bash
 copilot scan . --config config/self-scan.copilot.yaml
-# 28 checks · 11 applicable · 0 gaps · score 100 · 2 accepted
+# 28 checks · 11 applicable · 0 gaps · score 100 · 3 accepted
 ```
 
-Two findings on its own source are accepted in that config, with reasons: a
-pair of route decorators that live inside docstrings, and rate limiting for a
-tool that has no HTTP server. Both are the documented cost of matching lines
-with regexes instead of parsing them. Scanning itself is also how two rule
-precision bugs were found — see `config/self-scan.copilot.yaml`.
+Three findings on its own source are accepted in that config, with reasons: a
+pair of route decorators that live inside docstrings; rate limiting for a
+local single-user server bound to 127.0.0.1; and the browser UI displaying
+the server's fixed error messages, which a regex reads as leaked exception
+detail. All three are the documented cost of matching lines with regexes
+instead of parsing them. Scanning itself is also how two rule precision bugs
+were found — see `config/self-scan.copilot.yaml`.
 
 ## Constraints
 
 1. **Static analysis only.** No LLM calls, no network, no code execution, no
-   telemetry. Nothing this tool does needs a connection.
+   telemetry. Scanning never needs a connection. (The browser app fetches its
+   IBM Plex fonts from Google Fonts when online and falls back to system fonts
+   offline; no scan data is ever sent.)
 2. **Rules in data.** A new control category is a YAML file — including the
    Python side, since a category declared only in a rule file still runs.
 3. **Detectors independent.** No cross-imports, no shared mutable state — and
@@ -494,7 +554,7 @@ src/copilot/
 ├── rules/              the YAML rule set
 │   └── tests/          each control's executable examples
 └── reporter/           terminal, json, html, sarif, markdown
-web/streamlit_app.py    optional browser UI over the same pipeline
+web/                    optional local browser UI (server.py + static/)
 corpus/                 labelled samples + ground truth
 config/                 the self-scan config used in CI
 docs/                   architecture, controls, phase-by-phase progress
