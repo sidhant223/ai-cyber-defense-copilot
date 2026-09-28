@@ -4,7 +4,7 @@
 'use strict';
 
 const S = {
-  screen: 'home', theme: store('theme') || 'light', menu: !isNarrow() && store('menu') !== 'closed',
+  screen: 'home', theme: store('theme') || 'light', menu: !isNarrow() || store('menu') === 'open',
   rail: store('rail') === 'true', meta: null, history: [], report: null,
   sel: null, minSev: 'all', statusFilter: 'all', fileFilter: 'all', detailTab: 'diff', showSat: false, query: '', reveal: false, showSkipped: false,
   showCalcDetails: false,
@@ -126,7 +126,7 @@ function sidebar() {
       </div>
     </div>`;
 
-  return `<aside class="side" id="side" aria-label="Main menu" ${S.menu ? '' : 'inert'}>
+  return `<aside class="side" id="side" aria-label="Main menu"${isNarrow() && !S.menu ? ' inert' : ''}>
   <div class="side-header">
     <button class="brand" data-act="go" data-v="home" title="Defense Copilot">
       <span class="brand-mark">${logoMark(26)}</span>
@@ -575,7 +575,7 @@ async function runScan() {
 }
 
 async function navigate(screen) {
-  set({ screen, menu: isNarrow() ? false : S.menu });
+  set({ screen, menu: isNarrow() ? false : true });
   window.scrollTo(0, 0);
   try {
     if (screen === 'rules' && !S.rules) set({ rules: await api('/api/rules') });

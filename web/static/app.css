@@ -160,6 +160,9 @@ nav { display: flex; flex-direction: column; gap: 2px; }
 .navbtn.on .nav-icon { color: var(--absent); }
 .navbtn .badge { font: 11px var(--mono); color: var(--mute); }
 .navbtn.on .badge { color: var(--ink); font-weight: 500; }
+.nav-icon, .nav-icon *, .brand-mark, .brand-mark *, .rail-toggle *, .rail-icon, .rail-icon *, .navbtn-main, .nav-label, .badge {
+  pointer-events: none;
+}
 
 /* Sidebar Rail Mode (Collapsed to 64px) */
 .shell.rail .side {
