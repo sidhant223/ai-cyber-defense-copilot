@@ -42,7 +42,7 @@ SCREENS.routes = () => {
     ['no-role', `Missing role check (${noRoleCount})`]
   ];
 
-  const tpl = `grid-template-columns:120px minmax(220px,1.6fr) ${columns.map(() => '1fr').join(' ')}`;
+  const tpl = `grid-template-columns:minmax(160px,1fr) minmax(220px,2fr) ${columns.map(() => 'minmax(72px,90px)').join(' ')}`;
   const cell = v => `<span class="mono small" style="color:${v === 'yes' ? 'var(--mute)' : v === 'no' ? 'var(--accent)' : 'var(--line2)'}">${esc(v)}</span>`;
 
   return `<div class="page w1100">
@@ -62,16 +62,16 @@ SCREENS.routes = () => {
 
     <div class="between" style="align-items:center;gap:var(--s-16)">
       <input class="field mono" data-bind="routeQuery" value="${esc(S.routeQuery)}" placeholder="Search endpoints or paths (e.g. /login, POST, admin)..." style="flex:1;max-width:380px" aria-label="Search routes">
-      <div class="row g16" style="align-items:center">
+      <div class="row g16" style="align-items:center;flex-wrap:wrap">
         ${tabs(filterTabs, S.routeFilter || 'all', 'routeFilter')}
         <button class="btn-text xs mute" data-act="copyRouteTable">Copy Markdown Table</button>
       </div>
     </div>
 
-    <div style="overflow-x:auto;width:100%"><div class="table">
-      <div class="trow head" style="${tpl}"><span>Location</span><span>Route</span>${columns.map(c => `<span>${esc(c)}</span>`).join('')}</div>
+    <div style="overflow-x:auto;width:100%"><div class="table wide">
+      <div class="trow head" style="${tpl}"><span>Location</span><span>Route</span>${columns.map(c => `<span class="clip" title="${esc(c)}">${esc(c)}</span>`).join('')}</div>
       ${shown.length ? shown.map(x => `<div class="trow ${x.unprotected ? 'hot' : ''}" style="${tpl}">
-        <button class="mono small mute click-copy" data-act="copyText" data-v="${esc(x.file_path)}:${x.line}" title="Click to copy location" style="text-align:left">${esc(x.file_path)}:${x.line}</button>
+        <button class="mono small mute click-copy clip" data-act="copyText" data-v="${esc(x.file_path)}:${x.line}" title="${esc(x.file_path)}:${x.line} (click to copy)" style="text-align:left">${esc(x.file_path)}:${x.line}</button>
         <span class="mono small clip" title="${esc(x.snippet.trim())}">${highlightLine(x.snippet.trim(), x.file_path.split('.').pop())}</span>
         ${columns.map(c => cell(x.columns[c])).join('')}</div>`).join('')
         : '<div class="mute small" style="padding:var(--s-16) 0">No routes match the current filter.</div>'}
