@@ -130,8 +130,8 @@ p { margin: 0; text-wrap: pretty; }
 .side {
   width: 220px; flex: none; border-right: 1px solid var(--line);
   display: flex; flex-direction: column; gap: var(--s-16);
-  padding: var(--s-16) var(--s-12); position: sticky; top: 0; height: 100vh;
-  overflow-y: auto; background: var(--bg);
+  padding: var(--s-16) var(--s-12); position: sticky; top: 0; height: 100vh; height: 100dvh;
+  overflow: hidden; background: var(--bg);
   transition: width 240ms var(--ease-in-out), padding 240ms var(--ease-in-out);
   z-index: 20;
 }
@@ -359,7 +359,7 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .panel.pad-s { padding: 12px 16px; }
 .panel.flush { padding: 0; overflow: hidden; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.grid2s { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+.grid2s { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px; }
 
 /* ---------- Buttons & Inputs ---------- */
 .btn {
@@ -1388,6 +1388,9 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .table .trow:not(.head):nth-child(12) { animation: rowFadeIn var(--dur-base) var(--ease-out) both 150ms; }
 .table .trow:not(.head):nth-child(13) { animation: rowFadeIn var(--dur-base) var(--ease-out) both 165ms; }
 
+.trow > * { min-width: 0; }
+.menu-btn { display: none; align-self: center; }
+.table.wide { min-width: 760px; }
 .trow.head {
   border-bottom: 1px solid var(--line2); font-size: 11.5px; color: var(--mute);
   font-weight: 400; padding: 8px 14px;
@@ -1467,6 +1470,9 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .shell.rail .sidefoot { display: flex; }
   .shell.rail .side-latest-full { display: flex; }
   .shell.rail .side-latest-compact { display: none; }
+  .menu-btn { display: grid; }
+  .top { padding-left: var(--s-16); padding-right: var(--s-16); }
+  .page { padding-left: var(--s-16); padding-right: var(--s-16); }
   .shell.menu-closed .side { transform: translateX(-100%); }
   .shell.menu-open .side { transform: none; }
   .scrim {
@@ -1482,6 +1488,27 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .hero-wrap { grid-template-columns: minmax(0, 1fr); gap: var(--s-24); }
   .hero-headline { font-size: 34px; }
   .score-num { font-size: 72px; }
+}
+
+/* Sidebar never scrolls: shrink spacing, then drop extras, as the window gets shorter */
+@media (max-height: 820px) {
+  .side { gap: var(--s-8); padding-top: var(--s-12); padding-bottom: var(--s-12); }
+  .navbtn { padding-top: 5px; padding-bottom: 5px; }
+  .navhead { padding-top: var(--s-8); padding-bottom: 2px; }
+  .side-latest { padding: 8px 10px; gap: 6px; }
+}
+@media (max-height: 700px) {
+  .sidefoot { display: none !important; }
+  .side-latest-meta { display: none; }
+  .navbtn { padding-top: 4px; padding-bottom: 4px; }
+  .navhead { padding-top: 6px; }
+}
+@media (max-height: 600px) {
+  .side-latest { display: none; }
+  .navhead { display: none !important; }
+}
+@media (max-height: 460px) {
+  .side { overflow-y: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

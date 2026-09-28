@@ -169,7 +169,7 @@ function topbar() {
     <button class="${S.theme === 'dark' ? 'on' : ''}" data-act="theme" data-v="dark">Dark</button>
   </div>`;
   return `<header class="top">
-    <div class="title"><b>${TITLES[S.screen]}</b></div>
+    <div class="title"><button class="menu-btn rail-toggle" data-act="menu" aria-label="Open menu" aria-expanded="${S.menu && isNarrow()}"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><b>${TITLES[S.screen]}</b></div>
     <div class="actions">${dl}${themes}</div>
   </header>`;
 }
