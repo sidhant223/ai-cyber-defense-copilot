@@ -49,7 +49,7 @@ LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 MAX_BODY = 60 * 1024 * 1024       # zip uploads; scan_service bounds the expansion
 CONTEXT = (3, 5)                  # source lines shown above / below evidence
 MIME = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
-        ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
+        ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png"}
 EXPORTS = {"html": (render_html, "text/html", "html"),
            "json": (render_json, "application/json", "json"),
            "sarif": (render_sarif, "application/json", "sarif"),

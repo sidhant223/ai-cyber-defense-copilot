@@ -47,3 +47,7 @@ copilot-report.json
 
 # Deliberately insecure, synthetic scanner fixture required by the corpus tests.
 !/corpus/samples/express-todo-api/.env
+
+# Local report build tools and artifacts
+*.pdf
+build_visual_report.py

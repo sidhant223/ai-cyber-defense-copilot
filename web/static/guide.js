@@ -34,41 +34,67 @@ const USE = [
 function steps(list, withCmd) {
   return list.map(([title, text, extra], i) => `<div class="guide-step">
     <span class="num">${i + 1}</span>
-    <div style="min-width:0"><b>${esc(title)}</b><span class="ink2">${esc(text)}</span>
-      ${withCmd && extra ? `<div class="cmd"><div class="code">${esc(extra)}</div><button data-act="copyCmd" data-v="${esc(extra)}">Copy</button></div>` : ''}
-      ${!withCmd && extra ? `<div style="margin-top:8px"><button class="btn sm" data-act="go" data-v="${extra}">Go to ${esc(TITLES[extra])} →</button></div>` : ''}
+    <div style="min-width:0;flex:1" class="stack g6">
+      <div style="font-weight:500">${esc(title)}</div>
+      <div class="mute small">${esc(text)}</div>
+      ${withCmd && extra ? `<div class="cmd"><div class="code" style="padding:var(--s-8) var(--s-16)">${esc(extra)}</div><button class="btn sm" data-act="copyCmd" data-v="${esc(extra)}">Copy</button></div>` : ''}
+      ${!withCmd && extra ? `<div><button class="btn-text xs" data-act="go" data-v="${extra}">Go to ${esc(TITLES[extra])} →</button></div>` : ''}
     </div></div>`).join('');
 }
 
 SCREENS.guide = () => {
   const os = S.guideOs || (navigator.platform.toLowerCase().startsWith('win') ? 'windows' : 'unix');
-  return `<div class="page w880" style="padding-top:28px;gap:24px">
-  <div class="stack g8"><h1 style="font-size:28px;font-weight:600;letter-spacing:-.02em">Guide</h1>
-    <p class="ink2" style="font-size:15px">Run the app on your computer, then find which security controls are missing from a project. No account, API key or internet connection is needed.</p></div>
-  <section class="stack g10">
-    <div class="between"><h2 style="font-size:18px;font-weight:600">Part 1 · Run the application</h2>
-      ${tabs([['windows', 'Windows'], ['unix', 'macOS / Linux']], os, 'guideOs')}</div>
-    <div class="panel">${steps(RUN[os], true)}</div>
-    <span class="small mute">Port 8000 busy? Add <span class="mono">--port 8001</span>. Prefer not to open a browser automatically? Add <span class="mono">--no-browser</span>.</span>
-  </section>
-  <section class="stack g10">
-    <h2 style="font-size:18px;font-weight:600">Part 2 · Use it</h2>
-    <div class="panel">${steps(USE, false)}</div>
-  </section>
-  <section class="stack g10">
-    <h2 style="font-size:18px;font-weight:600">Reading a finding</h2>
-    <div class="panel" style="padding:14px 18px;display:grid;grid-template-columns:auto 1fr;gap:10px 16px;align-items:center">
-      <span class="tag inline" style="color:var(--absent)">ABSENT</span><span>The protection is missing everywhere it is needed.</span>
-      <span class="tag inline" style="color:var(--partial)">PARTIAL</span><span>Present in some places, forgotten in others — usually the most useful finding.</span>
-      <span class="tag inline" style="color:var(--present)">PRESENT</span><span>Every place that needs it has it.</span>
-      <span class="tag inline" style="color:var(--na)">N/A</span><span>Nothing in the project needs this control.</span>
+  return `<div class="page w1100">
+  <div class="between" style="align-items:baseline">
+    <h1 style="font-size:28px;font-weight:500;margin:0">Documentation & Guide</h1>
+    <span class="mono xs mute">installation, workflow & reading findings</span>
+  </div>
+
+  <p class="home-sub" style="margin-top:0">Run the app on your computer, then find which security controls are missing from a project. No account, API key or internet connection is needed.</p>
+
+  <section class="panel stack g16">
+    <div class="between" style="align-items:center">
+      <span class="lbl">Part 1 · Run the application</span>
+      ${tabs([['windows', 'Windows'], ['unix', 'macOS / Linux']], os, 'guideOs')}
     </div>
-    <span class="small mute">A clean report means none of the 28 checks found a gap. It is not proof that the project is secure.</span>
+    <div class="stack">${steps(RUN[os], true)}</div>
+    <span class="xs mute">Port 8000 busy? Add <span class="mono">--port 8001</span>. Prefer not to open a browser automatically? Add <span class="mono">--no-browser</span>.</span>
   </section>
-  <section class="stack g10">
-    <h2 style="font-size:18px;font-weight:600">Prefer the terminal?</h2>
-    <div class="cmd"><div class="code">copilot scan corpus/samples/flask-notes-app\ncopilot scan ./my-project --format html -o report.html</div>
-      <button data-act="copyCmd" data-v="copilot scan ./my-project --format html -o report.html">Copy</button></div>
+
+  <section class="panel stack g16">
+    <span class="lbl">Part 2 · Use it step by step</span>
+    <div class="stack">${steps(USE, false)}</div>
+  </section>
+
+  <section class="panel stack g16">
+    <span class="lbl">Reading a finding</span>
+    <div class="stack">
+      <div class="row g16" style="padding:10px 0;border-bottom:1px solid var(--line)">
+        <div class="row g8" style="width:140px;flex:none"><span class="status-dot absent"></span><span class="chip absent">ABSENT</span></div>
+        <span class="mute small">The protection is missing everywhere it is needed.</span>
+      </div>
+      <div class="row g16" style="padding:10px 0;border-bottom:1px solid var(--line)">
+        <div class="row g8" style="width:140px;flex:none"><span class="status-dot partial"></span><span class="chip partial">PARTIAL</span></div>
+        <span class="mute small">Present in some places, forgotten in others — usually the most useful finding.</span>
+      </div>
+      <div class="row g16" style="padding:10px 0;border-bottom:1px solid var(--line)">
+        <div class="row g8" style="width:140px;flex:none"><span class="status-dot present"></span><span class="chip present">PRESENT</span></div>
+        <span class="mute small">Every place that needs it has it.</span>
+      </div>
+      <div class="row g16" style="padding:10px 0">
+        <div class="row g8" style="width:140px;flex:none"><span class="status-dot na"></span><span class="chip na">N/A</span></div>
+        <span class="mute small">Nothing in the project needs this control.</span>
+      </div>
+    </div>
+    <span class="xs mute">A clean report means none of the 28 checks found a gap. It is not proof that the project is secure.</span>
+  </section>
+
+  <section class="panel stack g12">
+    <span class="lbl">Prefer the terminal?</span>
+    <div class="row g8" style="align-items:stretch">
+      <div class="code" style="flex:1;padding:var(--s-8) var(--s-16)">copilot scan corpus/samples/flask-notes-app\ncopilot scan ./my-project --format html -o report.html</div>
+      <button class="btn sm" data-act="copyCmd" data-v="copilot scan ./my-project --format html -o report.html">Copy</button>
+    </div>
   </section></div>`;
 };
 
