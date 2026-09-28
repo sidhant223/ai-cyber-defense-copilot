@@ -15,8 +15,8 @@ from conftest import SAMPLES
 
 VULNERABLE = str(SAMPLES / "flask-notes-app")
 SECURE = str(SAMPLES / "fastapi-secure-tasks")
-FLASK_NOTES_LINE = "43 checks · 32 applicable · 19 gaps · score 53"
-SECURE_TASKS_LINE = "43 checks · 29 applicable · 0 gaps · score 100"
+FLASK_NOTES_LINE = "50 checks · 39 applicable · 20 gaps · score 60"
+SECURE_TASKS_LINE = "50 checks · 36 applicable · 0 gaps · score 100"
 
 
 def _finding(cid: str, status: Status, severity: Severity) -> Finding:

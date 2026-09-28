@@ -160,3 +160,72 @@ INJ-005:
     files:
       ui.js: |
         document.getElementById('out').innerHTML = location.hash;
+
+INJ-006:
+  - name: defusedxml
+    expect: present
+    files:
+      parse.py: |
+        from defusedxml.ElementTree import fromstring
+        doc = fromstring(body)
+
+  - name: lxml resolving entities
+    expect: absent
+    files:
+      parse.py: |
+        from lxml import etree
+        parser = etree.XMLParser(resolve_entities=True, no_network=False)
+        doc = etree.fromstring(body, parser)
+
+  - name: libxmljs with noent
+    expect: absent
+    files:
+      parse.js: |
+        const doc = libxmljs.parseXml(req.body, { noent: true });
+
+INJ-007:
+  - name: template file with variables
+    expect: present
+    files:
+      routes.js: |
+        router.get('/hello', (req, res) => {
+          res.render('hello', { name: req.query.name });
+        });
+
+  - name: ejs template from the query string
+    expect: absent
+    files:
+      routes.js: |
+        router.get('/preview', (req, res) => {
+          res.send(ejs.render(req.query.template, {}));
+        });
+
+  - name: jinja environment from a request field
+    expect: absent
+    files:
+      app.py: |
+        from jinja2 import Environment
+        env = Environment()
+        out = env.from_string(request.form["template"]).render()
+
+INJ-008:
+  - name: input escaped before it becomes a pattern
+    expect: present
+    files:
+      search.py: |
+        import re
+        hits = [t for t in titles if re.search(re.escape(q), t)]
+
+  - name: regex from the query string
+    expect: absent
+    files:
+      routes.js: |
+        router.get('/search', (req, res) => {
+          const pattern = new RegExp(req.query.q, 'i');
+        });
+
+  - name: mongo regex from the body
+    expect: absent
+    files:
+      repo.js: |
+        const notes = await Note.find({ title: { $regex: req.body.q } });

@@ -141,3 +141,36 @@ WEB-005:
     files:
       config.py: |
         WTF_CSRF_ENABLED = False
+
+WEB-006:
+  - name: django clickjacking middleware
+    expect: present
+    files:
+      requirements.txt: django==5.0
+      manage.py: |
+        import django
+      settings.py: |
+        MIDDLEWARE = [
+            "django.middleware.clickjacking.XFrameOptionsMiddleware",
+        ]
+
+  - name: helmet with frameguard switched off
+    expect: absent
+    files:
+      package.json: '{"dependencies": {"express": "^4.18.0", "helmet": "^7.0.0"}}'
+      app.js: |
+        const express = require('express');
+        const helmet = require('helmet');
+        const app = express();
+        app.use(helmet({ frameguard: false }));
+
+  - name: django without the middleware
+    expect: absent
+    files:
+      requirements.txt: django==5.0
+      manage.py: |
+        import django
+      settings.py: |
+        MIDDLEWARE = [
+            "django.middleware.common.CommonMiddleware",
+        ]

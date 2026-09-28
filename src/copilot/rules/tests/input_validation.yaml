@@ -134,3 +134,28 @@ INPUT-004:
         def convert(request):
             path = request.args["path"]
             subprocess.run(["convert", path], shell=False, check=True)
+
+INPUT-005:
+  - name: fields picked by name
+    expect: present
+    files:
+      routes.js: |
+        router.post('/profile', async (req, res) => {
+          const { name, bio } = req.body;
+          await User.update({ name, bio }, { where: { id: req.user.id } });
+        });
+
+  - name: whole body into create
+    expect: absent
+    files:
+      routes.js: |
+        router.post('/users', async (req, res) => {
+          const user = await User.create(req.body);
+        });
+
+  - name: request json unpacked into a model
+    expect: absent
+    files:
+      app.py: |
+        from flask import request
+        user = User(**request.json)

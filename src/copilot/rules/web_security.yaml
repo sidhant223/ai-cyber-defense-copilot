@@ -202,3 +202,45 @@ controls:
       Send the CSRF token from the form or fetch instead of exempting the
       view. A genuine exception -- a signed webhook, say -- should verify its
       own signature and be accepted with an inline suppression that says so.
+
+  - id: WEB-006
+    name: Clickjacking protection set
+    severity: medium
+    cwe: CWE-1021
+    owasp: A05:2021
+    confidence: medium   # a proxy can set the header where a code scan cannot see it
+    description: >
+      X-Frame-Options or a CSP frame-ancestors directive stops another site
+      from loading this one in an invisible frame and steering the user's
+      clicks.
+    applies_to:
+      frameworks: [flask, fastapi, django, express, nextjs, koa, nestjs, starlette]
+      index_buckets: [source, config, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'X-Frame-Options'
+          - 'frame-ancestors'
+          - '\bframeguard\b'
+          - '\bhelmet\s*\('                      # helmet() sets X-Frame-Options by default
+          - '\bTalisman\s*\('                    # so does Talisman
+          - 'XFrameOptionsMiddleware|\bX_FRAME_OPTIONS\s*='
+          - '@xframe_options_(?:deny|sameorigin)'
+        none_of:
+          - '\bframeguard\s*:\s*false'
+          - '\bframe_options\s*=\s*None'
+          - 'ALLOWALL'
+    verdict:
+      found: present
+      not_found: absent
+    remediation_hint: >
+      Send X-Frame-Options: DENY (or SAMEORIGIN if the site frames itself),
+      or the CSP frame-ancestors 'none' directive. helmet and Talisman do this
+      by default; Django needs XFrameOptionsMiddleware in MIDDLEWARE.

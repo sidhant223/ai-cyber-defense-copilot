@@ -181,3 +181,43 @@ controls:
       Call the program directly with an argument list and shell=False, so the
       shell never parses user data. Replace eval and pickle with a parser that
       only accepts the data you expect: json.loads, or yaml.safe_load.
+
+  - id: INPUT-005
+    name: No mass assignment from the request body
+    severity: high
+    cwe: CWE-915
+    owasp: A01:2021
+    description: >
+      Handing the whole request body to a model constructor or update lets
+      the client set fields it was never meant to touch -- role, is_admin,
+      owner_id, balance.
+    rationale: >
+      INPUT-001 asks whether the body is validated at all. This asks whether
+      it is then copied field-for-field into a record, which a schema that
+      allows extra keys does not prevent.
+    applies_to:
+      index_buckets: [source, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\(\s*\*\*\s*(?:request\.(?:POST|GET|data|json|form|values|args|get_json\s*\(\s*\))|await\s+request\.json\s*\(\s*\))'
+          - '\.(?:create|build|insert|insertOne|insertMany|bulkCreate|upsert|update|set)\s*\(\s*req\.body\s*[,)]'
+          - '\bnew\s+[A-Z]\w*\s*\(\s*req\.body\s*[,)]'
+          - '\bObject\.assign\s*\(\s*\w+\s*,\s*req\.body\s*\)'
+          - '\{\s*\.\.\.req\.body\b'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Copy only the fields the endpoint is meant to change: pick them by name,
+      or validate the body with a schema that forbids unknown keys (Pydantic
+      extra="forbid", zod .strict()) and build the record from the parsed
+      result. Set role, owner and other privileged fields from the session,
+      never from the body.

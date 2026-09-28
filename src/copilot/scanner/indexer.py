@@ -69,7 +69,10 @@ CONTENT_HINTS: dict[str, re.Pattern[str]] = {
     "authentication": re.compile(
         r"\b(auth|login|logout|signin|sign_in|register|signup|password|passwd|"
         r"session|jwt|token|credential|bcrypt|argon2|scrypt|pbkdf2|hashlib|"
-        r"current_user|login_required|permission)\b",
+        r"current_user|login_required|permission|"
+        # Token generation. AUTH-011 judges these, and a helper that mints a
+        # reset code names none of the words above.
+        r"random|secrets|otp|nonce)\b",
         re.IGNORECASE,
     ),
     "input_validation": re.compile(

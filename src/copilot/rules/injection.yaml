@@ -201,3 +201,109 @@ controls:
       of building HTML strings, set textContent instead of innerHTML, and
       reserve Markup / dangerouslySetInnerHTML for HTML you generated and
       sanitised yourself (DOMPurify, bleach).
+
+  - id: INJ-006
+    name: XML parsers do not resolve external entities
+    severity: high
+    cwe: CWE-611
+    owasp: A05:2021
+    confidence: high   # each pattern is an explicit parser switch
+    description: >
+      An XML parser that resolves external entities or loads DTDs can be made
+      to read local files or call internal URLs from inside an uploaded
+      document (XXE).
+    applies_to:
+      index_buckets: [source]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bresolve_entities\s*=\s*True\b'
+          - '\bno_network\s*=\s*False\b'
+          - '\bload_dtd\s*=\s*True\b|\bhuge_tree\s*=\s*True\b'
+          - '\bfeature_external_(?:ges|pes)\s*,\s*(?:True|1)\b'
+          - '\bnoent\s*:\s*true\b'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Parse untrusted XML with defusedxml in Python, or keep the parser's
+      defaults (lxml with resolve_entities=False, libxmljs without noent).
+      Prefer JSON for anything a client sends.
+
+  - id: INJ-007
+    name: Templates not compiled from user input
+    severity: critical
+    cwe: CWE-1336
+    owasp: A03:2021
+    description: >
+      Compiling request data as a template (server-side template injection)
+      runs the client's expressions on the server, which in Jinja2, EJS or
+      Pug reaches code execution.
+    rationale: >
+      render_template_string over request data is INJ-005's, where it is an
+      XSS sink as well; this covers the other template entry points so the
+      same line is not judged twice.
+    applies_to:
+      index_buckets: [source, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bjinja2\.Template\s*\(\s*(?:f["'']|[^)\n]*request\.)'
+          - '\bfrom_string\s*\(\s*(?:f["'']|[^)\n]*request\.)'
+          - '(?<![\w.])Template\s*\(\s*request\.'
+          - '\b(?:ejs|pug|jade|nunjucks|Handlebars|handlebars|Mustache|mustache|doT|_)\.(?:render|renderString|compile|template)\s*\(\s*req\.(?:query|body|params)'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Keep templates as files the server owns and pass user data in as
+      variables. If users must supply templates, use a logic-less engine in a
+      sandbox (jinja2.sandbox.SandboxedEnvironment) and treat it as code.
+
+  - id: INJ-008
+    name: Regular expressions not built from user input
+    severity: medium
+    cwe: CWE-1333
+    owasp: A04:2021
+    description: >
+      A regex compiled from request data lets the client supply a
+      catastrophically backtracking pattern that ties up a worker (ReDoS),
+      and changes what the search matches.
+    applies_to:
+      index_buckets: [source, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bRegExp\s*\(\s*req\.(?:query|body|params)'
+          - '\bre\.(?:compile|search|match|fullmatch|findall|finditer|sub|subn|split)\s*\(\s*request\.'
+          - '\$regex["'']?\s*:\s*req\.(?:query|body|params)'
+        none_of:
+          - '(?i)escape'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Escape the input before it becomes part of a pattern (re.escape,
+      lodash escapeRegExp), or search with a plain substring match. For
+      MongoDB $regex, escape the value and anchor the pattern.

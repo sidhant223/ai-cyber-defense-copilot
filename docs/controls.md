@@ -1,6 +1,6 @@
 # Controls
 
-Forty-three controls across eight categories. Each one is defined in a YAML
+Fifty controls across eight categories. Each one is defined in a YAML
 file under `src/copilot/rules/` and can be interrogated live:
 
 ```bash
@@ -35,11 +35,26 @@ Whether the application establishes *who* is calling.
 | AUTH-008 | CSRF protection where a cookie session authenticates | high | subject/guard |
 | AUTH-009 | Issued authentication tokens expire | high | subject/guard |
 | AUTH-010 | Password strength enforced where a password is set | medium | subject/guard |
+| AUTH-011 | Security tokens generated with a secure random source | high | presence (inverted) |
+| AUTH-012 | JWT signatures are verified | critical | presence (inverted) |
 
-AUTH-008 to AUTH-010 live in `authentication_sessions.yaml` rather than
+AUTH-008 to AUTH-012 live in `authentication_sessions.yaml` rather than
 `authentication.yaml`. The engine merges rule files by category, so a second
 file is a data change like any other; the split exists to keep both files
 short.
+
+**AUTH-011** keys on the *name* being assigned: a variable called `token`,
+`reset_code`, `otp` or `session_id` filled from `Math.random`, the `random`
+module or the clock. Names about when or how long (`token_expires`,
+`otp_length`) are skipped, because a timestamp is the right value there. It
+has a real catch in the corpus: `fastapi-bookstore` builds its session token as
+`sha256(username + datetime.now())`, which anyone can recompute.
+
+**AUTH-012** flags the explicit ways a JWT stops being checked:
+`verify_signature: False`, `algorithms=["none"]`, `ignoreExpiration: true`, and
+a one-argument `jwt.decode(token)`, which in jsonwebtoken does not verify
+at all. PyJWT's legacy `verify=False` is left to WEB-004, which already
+matches it.
 
 **AUTH-001 / AUTH-002 / AUTH-007** are the same control in three dialects,
 because the three frameworks put the check in three different places: a
@@ -103,6 +118,7 @@ Whether data crossing the trust boundary is constrained before use.
 | INPUT-002 | Database queries are parameterised | critical | subject/guard |
 | INPUT-003 | File uploads restricted by type and size | high | subject/guard |
 | INPUT-004 | No shell execution on request-derived input | critical | presence |
+| INPUT-005 | No mass assignment from the request body | high | presence (inverted) |
 
 **INPUT-001** finds raw body reads (`request.get_json()`, `req.body`,
 `request.POST`) and looks for a schema in the same file: Pydantic,
@@ -125,6 +141,13 @@ it catches `query = f"SELECT ..."` built on one line and executed on another.
 **INPUT-004** is presence-shaped and inverted: finding `shell=True`,
 `os.system`, `eval` on request data, or `pickle.loads` means the control is
 absent. A `# nosec` annotation on the line suppresses it.
+
+**INPUT-005** flags the request body copied wholesale into a record:
+`User.create(req.body)`, `new User(req.body)`, `Object.assign(user, req.body)`,
+`{...req.body}` and `Model(**request.json)`. INPUT-001 asks whether the body is
+validated; a schema that tolerates unknown keys still lets `role` through,
+which is why the two are separate. Mongo query methods (`updateOne(req.body)`)
+are INJ-001's and are not repeated here.
 
 ---
 
@@ -273,6 +296,7 @@ The browser-facing protections that AC-003 only samples.
 | WEB-003 | No open redirects | medium | subject/guard |
 | WEB-004 | Outbound TLS verification not disabled | high | presence (inverted) |
 | WEB-005 | CSRF protection not switched off | medium | presence (inverted) |
+| WEB-006 | Clickjacking protection set | medium | presence |
 
 **WEB-001 / WEB-002** pass on any one security header in AC-003's terms, so
 they ask for the two headers that matter most by name. `helmet()` and
@@ -338,6 +362,9 @@ Injection paths that INPUT-002 (SQL) and INPUT-004 (shell, `eval`,
 | INJ-003 | Outbound requests not built from request input (SSRF) | high | subject/guard |
 | INJ-004 | File paths not built from request input | high | subject/guard |
 | INJ-005 | User input not rendered as raw HTML | high | presence (inverted) |
+| INJ-006 | XML parsers do not resolve external entities | high | presence (inverted) |
+| INJ-007 | Templates not compiled from user input | critical | presence (inverted) |
+| INJ-008 | Regular expressions not built from user input | medium | presence (inverted) |
 
 **INJ-002** deliberately leaves out `pickle.loads` and a bare `yaml.load`,
 which INPUT-004 already judges, so one line is never penalised twice. It
@@ -356,9 +383,15 @@ request input.
 output (`<%-`, `{{{`). It cannot tell whether the value was sanitised first,
 which is why this repository accepts it for its own UI.
 
+**INJ-007** covers template entry points other than `render_template_string`
+(`from_string`, `jinja2.Template`, `ejs.render`, `pug.render` and similar),
+which INJ-005 already judges. **INJ-008** passes a line that escapes the input
+(`re.escape`, `escapeRegExp`).
+
 **Corpus coverage.** None of the eight labelled samples contains an injection
-flaw of these kinds, so these five controls are measured only by their rule
-examples until a holdout sample exercises them.
+flaw of these kinds, so these eight controls are measured only by their rule
+examples until a holdout sample exercises them. The same is true of AUTH-012
+and INPUT-005.
 
 ---
 
