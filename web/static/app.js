@@ -136,7 +136,10 @@ function sidebar() {
       </div>
     </button>
     <button class="rail-toggle" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}" title="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}">
-      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      ${S.rail ?
+        '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M14 10l2 2-2 2"/></svg>' :
+        '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M16 10l-2 2 2 2"/></svg>'
+      }
     </button>
   </div>
   <nav aria-label="Screens">${nav.map(([k, l, b, h]) => `${h ? `<div class="navhead">${h}</div>` : ''}
@@ -149,17 +152,16 @@ function sidebar() {
     </button>`).join('')}</nav>
   ${latestCard}
   <div class="sidefoot">
-    <div class="side-actions">
-      <div class="theme-toggle" role="group" aria-label="Theme">
-        <button class="${S.theme === 'light' ? 'on' : ''}" data-act="theme" data-v="light" title="Light theme">Light</button>
-        <span class="mute">/</span>
-        <button class="${S.theme === 'dark' ? 'on' : ''}" data-act="theme" data-v="dark" title="Dark theme">Dark</button>
-      </div>
-      <button class="rail-toggle" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}" title="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}">
-        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-      </button>
-    </div>
-    <span>static analysis · offline · runs nothing</span>
+    <button class="rail-btn" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse sidebar'}" title="${S.rail ? 'Expand sidebar' : 'Collapse sidebar'}">
+      <span class="rail-icon">
+        ${S.rail ?
+          '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M14 10l2 2-2 2"/></svg>' :
+          '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M16 10l-2 2 2 2"/></svg>'
+        }
+      </span>
+      <span class="rail-text">${S.rail ? 'Expand' : 'Collapse sidebar'}</span>
+    </button>
+    <span class="sidefoot-note">static analysis · offline</span>
   </div>
 </aside>`;
 }
@@ -470,7 +472,17 @@ function saveReport(r) {
 
 Object.assign(ACTIONS, {
   go: v => navigate(v),
-  menu: () => { const open = !S.menu; if (!isNarrow()) store('menu', open ? 'open' : 'closed'); set({ menu: open }); },
+  menu: () => {
+    if (isNarrow()) {
+      const open = !S.menu;
+      store('menu', open ? 'open' : 'closed');
+      set({ menu: open });
+    } else {
+      const next = !S.rail;
+      store('rail', next);
+      set({ rail: next });
+    }
+  },
   theme: v => { store('theme', v); set({ theme: v }); },
   source: v => set({ source: v, error: null }),
   sample: v => set({ sample: v, error: null }),
