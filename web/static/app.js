@@ -154,15 +154,6 @@ function sidebar() {
     </button>`).join('')}</nav>
   ${latestCard}
   <div class="sidefoot">
-    <button class="rail-btn" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse sidebar'}" title="${S.rail ? 'Expand sidebar' : 'Collapse sidebar'}">
-      <span class="rail-icon">
-        ${S.rail ?
-          '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M14 10l2 2-2 2"/></svg>' :
-          '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M16 10l-2 2 2 2"/></svg>'
-        }
-      </span>
-      <span class="rail-text">${S.rail ? 'Expand' : 'Collapse sidebar'}</span>
-    </button>
     <span class="sidefoot-note">static analysis · offline</span>
   </div>
 </aside>`;
@@ -177,10 +168,8 @@ function topbar() {
     <span class="mute">/</span>
     <button class="${S.theme === 'dark' ? 'on' : ''}" data-act="theme" data-v="dark">Dark</button>
   </div>`;
-  const burger = `<button class="burger" data-act="menu" aria-controls="side" aria-expanded="${S.menu}" aria-label="${S.menu ? 'Close' : 'Open'} menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">${S.menu && isNarrow() ? '<path d="M6 6l12 12M18 6L6 18"/>' : '<path d="M4 7h16M4 12h16M4 17h16"/>'}</svg></button>`;
-
   return `<header class="top">
-    <div class="title">${burger}<b>${TITLES[S.screen]}</b></div>
+    <div class="title"><b>${TITLES[S.screen]}</b></div>
     <div class="actions">${dl}${themes}</div>
   </header>`;
 }
