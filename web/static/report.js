@@ -291,7 +291,7 @@ function scoreSection(r) {
       <div class="stack g8">
         <div class="score-row">
           <span id="report-score-num" class="score-num" style="color:${scoreColor(s.posture_score)}">${s.posture_score}</span>
-          <div class="stack g4" style="padding-bottom:12px">
+          <div class="stack g6 score-meta">
             <div class="row g8" style="align-items:center">
               <span id="report-score-grade" class="score-grade report-grade-fade">${gradeText(r)}</span>
               ${trendHtml}

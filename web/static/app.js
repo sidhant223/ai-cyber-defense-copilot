@@ -36,7 +36,7 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 const scoreColor = s => s >= 80 ? 'var(--present)' : s >= 50 ? 'var(--partial)' : 'var(--absent)';
-const gradeText = r => r.summary.grade ? 'grade ' + r.summary.grade : 'grade withheld';
+const gradeText = r => r.summary.grade ? 'Grade ' + r.summary.grade : 'Grade withheld';
 const fColor = f => f.suppressed ? 'var(--na)' : SC[f.status];
 const fLabel = f => f.suppressed ? 'ACCEPTED' : SL[f.status];
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -134,6 +134,14 @@ function sidebar() {
         <b>Defense Copilot</b>
         <span>v${esc(m ? m.version : '0.1.0')} · ${m ? m.controls : '28'} controls</span>
       </div>
+    </button>
+    <button class="rail-toggle" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse sidebar'}" title="${S.rail ? 'Expand sidebar' : 'Collapse sidebar'}">
+      <span class="rail-icon">
+        ${S.rail ?
+          '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M14 10l2 2-2 2"/></svg>' :
+          '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M16 10l-2 2 2 2"/></svg>'
+        }
+      </span>
     </button>
   </div>
   <nav aria-label="Screens">${nav.map(([k, l, b, h]) => `${h ? `<div class="navhead">${h}</div>` : ''}
@@ -577,9 +585,15 @@ Object.assign(ACTIONS, {
     } catch (e) { flash(e.message); }
   },
   toggleRail: () => {
-    const next = !S.rail;
-    store('rail', next);
-    set({ rail: next });
+    if (isNarrow()) {
+      const open = !S.menu;
+      store('menu', open ? 'open' : 'closed');
+      set({ menu: open });
+    } else {
+      const next = !S.rail;
+      store('rail', next);
+      set({ rail: next });
+    }
   },
   copyCmd: (v, btnEl) => {
     navigator.clipboard.writeText(v).then(() => {
