@@ -47,10 +47,9 @@ SCREENS.routes = () => {
 
   return `<div class="page w1100">
     <div class="between" style="align-items:baseline">
-      <h1 class="serif" style="font-size:32px;margin:0">Route Inventory</h1>
+      <h1 style="font-size:28px;font-weight:500;margin:0">Route Inventory</h1>
       <span class="mono xs mute">${rows.length} endpoints detected in ${esc(r.source)}</span>
     </div>
-    <div class="hairline"></div>
 
     <div class="stat-grid">
       ${stats.map(([k, v, c]) => `
@@ -111,32 +110,31 @@ SCREENS.accepted = () => {
   else { ok = true; impact = `Would move the score ${r.summary.posture_score} → ${scoreIf(r.findings, fm.control)} and remove 1 gap.`; }
   return `<div class="page w1100">
     <div class="between" style="align-items:baseline">
-      <h1 class="serif" style="font-size:32px;margin:0">Accepted Risks</h1>
+      <h1 style="font-size:28px;font-weight:500;margin:0">Accepted Risks</h1>
       <span class="mono xs mute">suppressions & in-house guards</span>
     </div>
-    <div class="hairline"></div>
 
     <div class="grid2">
-      <div class="stack g24" style="min-width:0">
+      <div class="stack g20" style="min-width:0">
         <p class="mute small">An accepted finding stays in the report and leaves the gap list, the posture score and the exit code. An entry with no reason, or past its expiry, does not apply.</p>
-        <div class="hairline-list">
-          <div class="section-title" style="padding-bottom:var(--s-8)">Active suppressions</div>
+        <div class="panel flush stack">
+          <div class="panel-head">Active suppressions</div>
           ${items.length ? items.map(([st, col, text]) => `
-            <div class="hairline-row">
+            <div class="row g12" style="padding:10px 16px;border-bottom:1px solid var(--line);align-items:center">
               <span class="tag inline" style="color:${col}">${st}</span>
               <span class="mono small" style="word-break:break-word;flex:1">${esc(text)}</span>
             </div>`).join('')
-            : '<div class="mute small" style="padding:var(--s-8) 0">No suppressions recorded for this target.</div>'}
+            : '<div class="mute small" style="padding:12px 16px">No suppressions recorded for this target.</div>'}
         </div>
-        <div class="editorial-section">
-          <div class="section-title">In-house guards</div>
-          <p class="mute small">Protections this codebase writes its own way. Without them, every route behind an in-house decorator reads as unauthenticated.</p>
+        <div class="panel stack g8">
+          <span class="lbl">In-house guards</span>
+          <p class="mute small" style="margin:0">Protections this codebase writes its own way. Without them, every route behind an in-house decorator reads as unauthenticated.</p>
           <div class="code pre">guards:\n  AUTH-001: ['@require_api_key']</div>
         </div>
       </div>
 
-      <div class="editorial-section sticky" style="gap:var(--s-16)">
-        <span class="section-title">Accept a finding</span>
+      <div class="panel sticky stack g16">
+        <span class="lbl">Accept a finding</span>
         ${gaps.length ? `
         <label class="stack g6">
           <span class="xs mute">Control</span>
@@ -158,7 +156,7 @@ SCREENS.accepted = () => {
         </div>
         <div class="code pre">${esc(snippet)}</div>
         <span class="xs" style="color:${ok ? 'var(--ink)' : 'var(--accent)'}">${esc(impact)}</span>
-        <button class="btn-solid block" data-act="copySnippet">Copy snippet</button>
+        <button class="btn primary block" data-act="copySnippet">Copy snippet</button>
         <span class="xs mute">Paste into your project and scan again. This page never edits your files.</span>`
         : '<span class="small mute">This report has no open gaps to accept.</span>'}
       </div>
@@ -184,15 +182,14 @@ SCREENS.rules = () => {
   const f = byId[c.id];
   return `<div class="page w1100">
     <div class="between" style="align-items:baseline">
-      <h1 class="serif" style="font-size:32px;margin:0">Detection Rules</h1>
+      <h1 style="font-size:28px;font-weight:500;margin:0">Detection Rules</h1>
       <span class="mono xs mute">${S.rules.length} rules catalogue · YAML</span>
     </div>
-    <div class="hairline"></div>
 
     <div class="grid2">
       <div class="stack g16" style="min-width:0">
         ${tabs([['all', 'All']].concat(CATS), S.ruleCat, 'ruleCat')}
-        <div class="hairline-list">
+        <div class="panel flush stack">
           ${list.map(x => { const [sk, s2, c2] = status(x.id); return `
             <button class="control-row ${x.id === c.id ? 'on' : ''}" data-act="rule" data-v="${esc(x.id)}">
               <span class="status-dot ${sk}"></span>
@@ -209,23 +206,24 @@ SCREENS.rules = () => {
           <div class="row g16" style="align-items:baseline">
             <span class="status-dot ${stKey}"></span>
             <span class="mono xs mute">${esc(c.id)}</span>
-            <span class="caps">${c.severity} · ${c.mode}</span>
+            <span class="xs mute">·</span>
+            <span class="xs mute" style="text-transform:capitalize">${c.severity} · ${c.mode}</span>
           </div>
           <h2>${esc(c.name)}</h2>
           <span class="mono xs mute">${esc([CATT[c.category], c.cwe, c.owasp, 'src/copilot/rules/' + c.source_file].filter(Boolean).join(' · '))}</span>
         </div>
         <div class="row" style="align-items:center;gap:10px;font-size:12.5px">
-          <span class="tag inline" style="color:${col}">${st}</span>
-          <span class="mute">in ${esc(r ? r.source : 'no scan yet')}</span>
-          ${f && f.status !== 'not_applicable' ? `<button class="btn-text xs" style="margin-left:auto;color:var(--accent)" data-act="openRule" data-v="${esc(c.id)}">Open finding →</button>` : ''}
+          <span class="chip ${stKey}">${st}</span>
+          <span class="mute xs">in ${esc(r ? r.source : 'no scan yet')}</span>
+          ${f && f.status !== 'not_applicable' ? `<button class="btn-text xs" style="margin-left:auto;color:var(--present)" data-act="openRule" data-v="${esc(c.id)}">Open finding →</button>` : ''}
         </div>
-        ${c.description ? `<div class="stack g6"><span class="section-title">What it checks</span><span class="ink2 small">${esc(c.description)}</span></div>` : ''}
-        <div class="stack g6"><span class="section-title">Mode</span><span class="ink2 small">${esc(MODE_TEXT[c.mode] || 'Custom computation in detector.')}</span></div>
+        ${c.description ? `<div class="stack g6"><span class="lbl">What it checks</span><span class="desc">${esc(c.description)}</span></div>` : ''}
+        <div class="stack g6"><span class="lbl">Mode</span><span class="desc">${esc(MODE_TEXT[c.mode] || 'Custom computation in detector.')}</span></div>
         ${c.yaml ? `<div class="code pre" style="max-height:300px;overflow:auto">${esc(c.yaml)}</div>` : ''}
-        ${Object.keys(c.verdict).length ? `<div class="stack g6"><span class="section-title">Verdict mapping</span>
+        ${Object.keys(c.verdict).length ? `<div class="stack g6"><span class="lbl">Verdict mapping</span>
           <div class="mono xs" style="display:grid;grid-template-columns:auto 1fr;gap:4px 14px">${Object.entries(c.verdict).map(([k, v]) =>
             `<span class="mute">${esc(k)}</span><span style="color:${SC[v] || 'var(--mute)'}">${esc(v)}</span>`).join('')}</div></div>` : ''}
-        <div class="stack g6"><span class="section-title">Remediation</span><span class="ink2 small">${esc(c.remediation)}</span></div>
+        <div class="stack g6"><span class="lbl">Remediation</span><span class="remed-hint">${esc(c.remediation)}</span></div>
       </article>
     </div>
   </div>`;
@@ -242,15 +240,14 @@ SCREENS.how = () => {
   ];
   return `<div class="page w1100">
     <div class="between" style="align-items:baseline">
-      <h1 class="serif" style="font-size:32px;margin:0">How It Works</h1>
+      <h1 style="font-size:28px;font-weight:500;margin:0">How It Works</h1>
       <span class="mono xs mute">pipeline, scoring model & limitations</span>
     </div>
-    <div class="hairline"></div>
 
-    <section class="editorial-section">
-      <div class="section-title">What this reports</div>
+    <section class="panel stack g12">
+      <span class="lbl">What this reports</span>
       <p class="desc">A linter finds bad code that exists. This finds good code that should exist and does not: no auth on a route, no rate limit on a login endpoint, a secret sitting in plaintext.</p>
-      <div class="flowline">
+      <div class="row g16 mono xs" style="padding-top:var(--s-8)">
         <span>repo path</span>
         <span class="mute">→</span>
         <span>SCANNER <i class="mute" style="font-style:normal">what's there</i></span>
@@ -261,8 +258,8 @@ SCREENS.how = () => {
       </div>
     </section>
 
-    <section class="editorial-section">
-      <div class="section-title">Four outcomes</div>
+    <section class="stack g12">
+      <span class="lbl">Four outcomes</span>
       <div class="stat-grid">
         ${outcomes.map(([k, v, d]) => `
           <div class="stat-col">
@@ -277,26 +274,24 @@ SCREENS.how = () => {
       <p class="mute small">PARTIAL is the interesting one. Authentication applied to most routes and forgotten on two is far more common than authentication missing entirely, and a binary scanner calls that present.</p>
     </section>
 
-    <section class="editorial-section">
-      <div class="section-title">Posture score</div>
+    <section class="panel stack g12">
+      <span class="lbl">Posture score</span>
       <div class="code" style="font-size:13.5px">score = 100 × Σ(weight × credit) / Σ(weight)</div>
-      <div class="row g48" style="padding:var(--s-8) 0">
-        <div class="stack g4"><span class="section-title">Weight</span><span class="mono xs">critical 5 · high 3 · medium 2 · low 1</span></div>
-        <div class="stack g4"><span class="section-title">Credit</span><span class="mono xs">present 1.0 · partial 0.5 · absent 0</span></div>
+      <div class="row g32" style="padding:var(--s-8) 0">
+        <div class="stack g4"><span style="font-size:12px;color:var(--mute)">Weight</span><span class="mono xs">critical 5 · high 3 · medium 2 · low 1</span></div>
+        <div class="stack g4"><span style="font-size:12px;color:var(--mute)">Credit</span><span class="mono xs">present 1.0 · partial 0.5 · absent 0</span></div>
       </div>
       ${r ? `<div class="notice"><b>For ${esc(r.source)}:</b> ${r.weights.earned.toFixed(1)} earned / ${r.weights.total} weight across ${r.summary.controls_scored} scored controls = ${r.summary.posture_score}</div>` : ''}
-      <p class="mute small">Grade bands A 90 · B 80 · C 70 · D 60. Capped at D while any critical control is absent. Withheld entirely when a run is narrowed to some categories. N/A and accepted findings are excluded from both sums, and display filters never move the number.</p>
+      <p class="mute small" style="margin:0">Grade bands A 90 · B 80 · C 70 · D 60. Capped at D while any critical control is absent. Withheld entirely when a run is narrowed to some categories. N/A and accepted findings are excluded from both sums, and display filters never move the number.</p>
     </section>
 
-    <section class="editorial-section">
-      <div class="section-title">Limits worth knowing</div>
-      <div class="hairline-list">
-        <div class="hairline-row"><b style="width:180px;flex:none">Static analysis only</b><span class="mute small" style="flex:1">Nothing is executed, no network calls are made.</span></div>
-        <div class="hairline-row"><b style="width:180px;flex:none">Regex, not a parser</b><span class="mute small" style="flex:1">Whole-line comments are stripped, but multi-line constructs can defeat proximity windows.</span></div>
-        <div class="hairline-row"><b style="width:180px;flex:none">No cross-module dataflow</b><span class="mute small" style="flex:1">Express middleware mounted in another file cannot be tied to a specific router.</span></div>
-        <div class="hairline-row"><b style="width:180px;flex:none">Rule-based guidance</b><span class="mute small" style="flex:1">Explanations come from the rule catalogue and the scan's own evidence; no AI model is needed or read.</span></div>
-        <div class="hairline-row"><b style="width:180px;flex:none">Exports are not redacted</b><span class="mute small" style="flex:1">Evidence can quote secrets; treat downloaded reports as sensitive.</span></div>
-      </div>
+    <section class="panel flush stack">
+      <div class="panel-head">Limits worth knowing</div>
+      <div class="row g16" style="padding:10px 16px;border-bottom:1px solid var(--line)"><b style="width:180px;flex:none;font-weight:500;font-size:13px">Static analysis only</b><span class="mute small" style="flex:1">Nothing is executed, no network calls are made.</span></div>
+      <div class="row g16" style="padding:10px 16px;border-bottom:1px solid var(--line)"><b style="width:180px;flex:none;font-weight:500;font-size:13px">Regex, not a parser</b><span class="mute small" style="flex:1">Whole-line comments are stripped, but multi-line constructs can defeat proximity windows.</span></div>
+      <div class="row g16" style="padding:10px 16px;border-bottom:1px solid var(--line)"><b style="width:180px;flex:none;font-weight:500;font-size:13px">No cross-module dataflow</b><span class="mute small" style="flex:1">Express middleware mounted in another file cannot be tied to a specific router.</span></div>
+      <div class="row g16" style="padding:10px 16px;border-bottom:1px solid var(--line)"><b style="width:180px;flex:none;font-weight:500;font-size:13px">Rule-based guidance</b><span class="mute small" style="flex:1">Explanations come from the rule catalogue and the scan's own evidence; no AI model is needed or read.</span></div>
+      <div class="row g16" style="padding:10px 16px"><b style="width:180px;flex:none;font-weight:500;font-size:13px">Exports are not redacted</b><span class="mute small" style="flex:1">Evidence can quote secrets; treat downloaded reports as sensitive.</span></div>
     </section>
   </div>`;
 };

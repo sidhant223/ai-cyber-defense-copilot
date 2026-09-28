@@ -55,7 +55,7 @@ function projectView() {
     const q = [['TP', t.tp, 'gap labelled, gap reported', 'var(--ink)'], ['FP', t.fp, 'reported, not labelled', t.fp ? 'var(--accent)' : 'var(--mute)'],
       ['FN', t.fn, 'labelled, missed', t.fn ? 'var(--accent)' : 'var(--mute)'], ['TN', t.tn, 'no gap, none reported', 'var(--ink)']];
     truth = `<div class="confusion">${q.map(([k, v, d, col]) => `<div class="confusion-col"><b style="color:${col}">${v}</b><span class="mono xs" style="font-weight:600">${k}</span><span class="xs mute">${d}</span></div>`).join('')}</div>
-      ${t.disagreements.length ? `<div class="hairline-list">${t.disagreements.map(d => `<div class="trow" style="grid-template-columns:90px 1fr 1fr 80px">
+      ${t.disagreements.length ? `<div class="table">${t.disagreements.map(d => `<div class="trow" style="grid-template-columns:90px 1fr 1fr 80px">
         <span class="mono small">${esc(d.control_id)}</span><span class="small">labelled <b>${esc(d.expected)}</b></span><span class="small">reported <b>${esc(d.reported)}</b></span>
         <span class="mono xs" style="color:var(--accent)">${esc(d.outcome.toUpperCase())}</span></div>`).join('')}</div>`
         : `<div class="mute small" style="padding:var(--s-8) 0">Every labelled control in the scanned categories matches the manifest for <span class="mono">${esc(t.sample)}</span>.</div>`}
@@ -65,12 +65,11 @@ function projectView() {
   return `<div class="page w1100">
     <div class="between" style="align-items:baseline">
       <div>
-        <h1 class="serif" style="font-size:32px;margin:0">Evaluation & Accuracy</h1>
+        <h1 style="font-size:28px;font-weight:500;margin:0">Evaluation & Accuracy</h1>
         <span class="mono xs mute">${esc(r.source)} · ${esc(r.scan.framework || 'unknown framework')} · ${r.scan.files_scanned} files</span>
       </div>
       ${tabs([['project', 'This project'], ['corpus', 'Corpus']], 'project', 'evalView')}
     </div>
-    <div class="hairline"></div>
 
     <div class="stat-grid">
       ${tiles.map(([k, v, col, sub]) => `
@@ -81,46 +80,46 @@ function projectView() {
       `).join('')}
     </div>
 
-    <section class="editorial-section">
-      <div class="section-title">By category</div>
+    <section class="panel stack g12">
+      <span class="lbl">By category</span>
       <div style="overflow-x:auto;width:100%"><div class="table" style="min-width:720px">
         <div class="trow head" style="${catTpl}"><span>Category</span><span>Present</span><span>Partial</span><span>Absent</span><span>N/A</span><span>Gaps</span><span>Weighted score</span><span></span></div>
         ${cats.map(x => `<div class="trow" style="${catTpl}">
           <span>${x.t}</span><span class="mono">${x.present}</span><span class="mono ${x.partial ? 'gaps-flag' : ''}">${x.partial}</span>
           <span class="mono ${x.absent ? 'gaps-flag' : ''}">${x.absent}</span><span class="mono mute">${x.na}</span><span class="mono">${x.gaps}</span>
-          <div class="hairline-progress" title="${x.earned.toFixed(1)} of ${x.total} weight"><div class="hairline-progress-fill" style="width:${x.score ?? 0}%"></div></div>
-          <span class="mono" style="font-weight:600">${x.score ?? '—'}</span></div>`).join('')}
+          <div class="bar" title="${x.earned.toFixed(1)} of ${x.total} weight"><i style="width:${x.score ?? 0}%"></i></div>
+          <span class="mono" style="font-weight:500">${x.score ?? '—'}</span></div>`).join('')}
       </div></div>
       <span class="xs mute">Score per category uses the same weights as overall score (critical 5, high 3, medium 2, low 1; present 1, partial 0.5). A dash means nothing in that category applied.</span>
     </section>
 
     <div class="grid2">
-      <section class="editorial-section">
-        <div class="section-title">Gaps and evidence</div>
-        <div class="hairline-list">${conf.map(([k, n]) => `
-          <div class="hairline-row">
-            <span class="caps" style="width:120px">${k} confidence</span>
-            <div class="hairline-progress" style="flex:1"><div class="hairline-progress-fill" style="width:${gaps.length ? 100 * n / gaps.length : 0}%"></div></div>
-            <span class="mono small" style="width:24px;text-align:right">${n}</span>
+      <section class="panel stack g12">
+        <span class="lbl">Gaps and evidence</span>
+        <div class="stack g8">${conf.map(([k, n]) => `
+          <div class="row g12" style="align-items:center">
+            <span class="xs mute" style="width:120px;text-transform:capitalize">${k} confidence</span>
+            <div class="bar flex"><i style="width:${gaps.length ? 100 * n / gaps.length : 0}%"></i></div>
+            <span class="mono xs" style="width:24px;text-align:right">${n}</span>
           </div>`).join('')}</div>
-        <span class="small mute">${evidence} evidence item${evidence === 1 ? '' : 's'} across all controls; gaps point at ${files.size} file${files.size === 1 ? '' : 's'}.</span>
+        <span class="xs mute">${evidence} evidence item${evidence === 1 ? '' : 's'} across all controls; gaps point at ${files.size} file${files.size === 1 ? '' : 's'}.</span>
         <span class="mono xs mute">${r.weights.earned.toFixed(1)} earned / ${r.weights.total} weight across ${s.controls_scored} scored controls = ${s.posture_score}</span>
       </section>
 
-      <section class="editorial-section">
-        <div class="section-title">Compared with bundled samples</div>
+      <section class="panel stack g12">
+        <span class="lbl">Compared with bundled samples</span>
         ${samples.length ? `
-          <div class="hairline-list">${[{ name: r.source, score: s.posture_score, me: true }].concat(samples).sort((a, b) => b.score - a.score).map(x => `
-            <div class="hairline-row">
-              <span class="mono small clip" style="width:170px;${x.me ? 'font-weight:600;color:var(--ink)' : 'color:var(--mute)'}">${esc(x.name)}${x.me ? ' ◂' : ''}</span>
-              <div class="hairline-progress" style="flex:1"><div class="hairline-progress-fill" style="width:${x.score}%"></div></div>
-              <span class="mono small" style="width:28px;text-align:right">${x.score}</span>
-            </div>`).join('')}</div>` : '<span class="mute small">Sample scores unavailable.</span>'}
+          <div class="stack g8">${[{ name: r.source, score: s.posture_score, me: true }].concat(samples).sort((a, b) => b.score - a.score).map(x => `
+            <div class="row g12" style="align-items:center">
+              <span class="mono xs clip" style="width:160px;${x.me ? 'font-weight:500;color:var(--ink)' : 'color:var(--mute)'}">${esc(x.name)}${x.me ? ' ◂' : ''}</span>
+              <div class="bar flex"><i style="width:${x.score}%;background:${scoreColor(x.score)}"></i></div>
+              <span class="mono xs" style="width:28px;text-align:right;color:${scoreColor(x.score)}">${x.score}</span>
+            </div>`).join('')}</div>` : '<span class="mute xs">Sample scores unavailable.</span>'}
       </section>
     </div>
 
-    <section class="editorial-section">
-      <div class="section-title">Against ground truth</div>
+    <section class="panel stack g12">
+      <span class="lbl">Against ground truth</span>
       ${truth}
     </section>
   </div>`;
@@ -130,18 +129,17 @@ function corpusView() {
   const d = S.evals[S.split];
   const head = `<div class="between" style="align-items:baseline">
     <div class="row g16" style="align-items:baseline">
-      <h1 class="serif" style="font-size:32px;margin:0">Corpus Evaluation</h1>
+      <h1 style="font-size:28px;font-weight:500;margin:0">Corpus Evaluation</h1>
       ${tabs([['dev', 'dev · 8 samples'], ['holdout', 'holdout']], S.split, 'split')}
     </div>
     ${tabs([['project', 'This project'], ['corpus', 'Corpus']], 'corpus', 'evalView')}
-  </div>
-  <div class="hairline"></div>`;
+  </div>`;
 
   if (!d) return `<div class="page w1100">${head}<span class="mute">Scanning corpus…</span></div>`;
   if (d.error) return `<div class="page w1100">${head}<div class="dashed" style="max-width:620px;padding:36px">
-    <span style="font-weight:600;font-size:15px">No ${esc(S.split)} split yet</span>
-    <span class="mute">Holdout samples are labelled by hand before the scanner ever sees them and are never used to change a rule. This is the only split whose numbers are reportable as accuracy.</span>
-    <span class="mono small" style="margin-top:6px">$ copilot evaluate --split holdout</span></div></div>`;
+    <span style="font-weight:500;font-size:15px">No ${esc(S.split)} split yet</span>
+    <span class="mute xs">Holdout samples are labelled by hand before the scanner ever sees them and are never used to change a rule. This is the only split whose numbers are reportable as accuracy.</span>
+    <span class="mono xs" style="margin-top:6px">$ copilot evaluate --split holdout</span></div></div>`;
 
   const tiles = [['TP', d.tp, 'gap labelled, gap reported', 'var(--ink)'], ['FP', d.fp, 'reported, not labelled', d.fp ? 'var(--accent)' : 'var(--mute)'],
     ['FN', d.fn, 'labelled, missed', d.fn ? 'var(--accent)' : 'var(--mute)'], ['TN', d.tn, 'no gap, none reported', 'var(--ink)']];
@@ -150,15 +148,15 @@ function corpusView() {
 
   return `<div class="page w1100">
     ${head}
-    <div class="confusion">${tiles.map(([k, v, dsc, col]) => `<div class="confusion-col"><b style="color:${col}">${v}</b><span class="mono xs" style="font-weight:600">${k}</span><span class="xs mute">${dsc}</span></div>`).join('')}</div>
+    <div class="confusion">${tiles.map(([k, v, dsc, col]) => `<div class="confusion-col"><b style="color:${col}">${v}</b><span class="mono xs" style="font-weight:500">${k}</span><span class="xs mute">${dsc}</span></div>`).join('')}</div>
     <div class="notice">Regression signal only. Rules were tuned until they matched these samples, so precision and recall here are circular by construction. No accuracy figure is claimed.</div>
     <div style="overflow-x:auto;width:100%"><div class="table" style="min-width:760px">
       <div class="trow head" style="${tpl}"><span>Sample</span><span>Framework</span><span>Kind</span><span>Score</span><span>Grade</span><span>Gaps</span><span>Manifest</span></div>
       ${d.samples.map(x => { const s = bySample[x.name] || {}; return `<div class="trow" style="${tpl}">
         <span class="mono small">${esc(x.name)}</span><span class="ink2">${esc(x.framework || 'unknown')}</span><span class="mute">${esc(s.kind || '')}</span>
-        <div class="row" style="flex-wrap:nowrap"><span class="mono" style="font-weight:600;font-size:12px;width:26px">${s.score ?? '—'}</span>
-          <div class="hairline-progress" style="flex:1"><div class="hairline-progress-fill" style="width:${s.score || 0}%"></div></div></div>
-        <span class="mono" style="font-weight:600;font-size:12px">${esc(s.grade || '—')}</span><span class="mono">${s.gaps ?? '—'}</span>
+        <div class="row" style="flex-wrap:nowrap"><span class="mono" style="font-weight:500;font-size:12px;width:26px;color:${scoreColor(s.score)}">${s.score ?? '—'}</span>
+          <div class="bar flex"><i style="width:${s.score || 0}%;background:${scoreColor(s.score)}"></i></div></div>
+        <span class="mono" style="font-weight:500;font-size:12px">${esc(s.grade || '—')}</span><span class="mono">${s.gaps ?? '—'}</span>
         <span class="mono xs" style="color:${x.disagreements ? 'var(--accent)' : 'var(--mute)'}">${x.disagreements ? plural(x.disagreements, 'disagreement') : 'matches'}</span></div>`; }).join('')}
     </div></div>
   </div>`;

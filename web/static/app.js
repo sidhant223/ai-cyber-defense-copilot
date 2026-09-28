@@ -76,26 +76,17 @@ function sidebar() {
 
 function topbar() {
   const r = S.report;
-  const gaps = r ? r.findings.filter(f => f.is_gap).length : 0;
-  const cli = { report: r && cliFor(r), routes: r && `copilot routes ${r.source}`, accepted: '.copilot.yaml',
-    rules: 'copilot rules list', eval: evalView() === 'project' ? (r && `copilot scan ${r.source} --format json`) : `copilot evaluate --split ${S.split}` }[S.screen];
   const dl = S.screen === 'report' && r ? `<div class="dl">${[['html', 'HTML'], ['json', 'JSON'], ['sarif', 'SARIF'], ['md', 'Markdown']]
     .map(([f, l]) => `<a href="/api/export/${esc(r.id)}?format=${f}" download>${l}</a>`).join('')}</div>` : '';
-  const themes = `<div class="theme-text-toggle" role="group" aria-label="Theme">
+  const themes = `<div class="theme-toggle" role="group" aria-label="Theme">
     <button class="${S.theme === 'light' ? 'on' : ''}" data-act="theme" data-v="light">Light</button>
     <span class="mute">/</span>
     <button class="${S.theme === 'dark' ? 'on' : ''}" data-act="theme" data-v="dark">Dark</button>
   </div>`;
   const burger = `<button class="burger" data-act="menu" aria-controls="side" aria-expanded="${S.menu}" aria-label="${S.menu ? 'Close' : 'Open'} menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">${S.menu && isNarrow() ? '<path d="M6 6l12 12M18 6L6 18"/>' : '<path d="M4 7h16M4 12h16M4 17h16"/>'}</svg></button>`;
-  const cliBtn = cli ? `<button class="click-copy" data-act="copyCli" data-v="${esc(cli)}" title="Click to copy CLI command" style="font:12px var(--mono);color:var(--mute);padding:3px 0;display:inline-flex;align-items:center;gap:6px">$ ${esc(cli)}</button>` : '';
-  const targetMeta = r ? `<span class="target-meta">Target: <span class="highlight">${esc(r.source)}</span> · <span class="highlight">${r.summary.posture_score} ${gradeText(r)}</span>${gaps ? ` · <span class="gaps-flag">${plural(gaps, 'gap')}</span>` : ''}</span>` : '';
 
   return `<header class="top">
-    <div class="title">
-      ${burger}<b>${TITLES[S.screen]}</b>
-      ${targetMeta}
-      ${cliBtn}
-    </div>
+    <div class="title">${burger}<b>${TITLES[S.screen]}</b></div>
     <div class="actions">${dl}${themes}</div>
   </header>`;
 }
@@ -126,75 +117,78 @@ SCREENS.home = () => {
   const gaps = r ? r.findings.filter(f => f.is_gap)
     .sort((a, b) => SEVR[a.severity] - SEVR[b.severity] || STR[a.status] - STR[b.status] || a.control_id.localeCompare(b.control_id)).slice(0, 5) : [];
   const trend = r && r.diff ? `
-    <span class="mono xs ${r.diff.scoreDelta > 0 ? 'mute' : 'gaps-flag'}" title="Previous score: ${r.diff.prevScore}">
-      ${r.diff.scoreDelta > 0 ? '+' : ''}${r.diff.scoreDelta} pts vs prev
+    <span class="score-trend ${r.diff.scoreDelta > 0 ? 'up' : r.diff.scoreDelta < 0 ? 'down' : 'same'}" title="Previous score: ${r.diff.prevScore}">
+      ${r.diff.scoreDelta > 0 ? '▲ +' : r.diff.scoreDelta < 0 ? '▼ ' : '= '}${r.diff.scoreDelta} pts vs prev
     </span>` : '';
   const latest = r ? `
-    <div class="score-editorial">
-      <span class="score-num">${r.summary.posture_score}</span>
-      <div class="score-meta">
-        <div class="row g8" style="align-items:center"><span class="grade-label">${gradeText(r)}</span>${trend}</div>
-        <span class="mute xs">${plural(gaps.length ? r.findings.filter(f => f.is_gap).length : 0, 'gap')} · ${r.summary.controls_scored} of ${r.summary.controls_evaluated} scored</span>
+    <div class="row" style="gap:16px;align-items:baseline">
+      <span class="score-num" style="font-size:64px;color:${scoreColor(r.summary.posture_score)}">${r.summary.posture_score}</span>
+      <div class="stack g4">
+        <div class="row g8" style="align-items:center"><span class="score-grade" style="font-size:16px">${gradeText(r)}</span>${trend}</div>
+        <span class="mute xs">${plural(gaps.length ? r.findings.filter(f => f.is_gap).length : 0, 'gap')} · ${r.summary.controls_scored} of ${r.summary.controls_evaluated} controls scored</span>
       </div>
     </div>
     ${chips(r)}
-    <div class="hairline-list" style="margin-top:var(--s-16)">
-      <div class="section-title" style="padding-bottom:var(--s-8)">Fix first</div>
-      ${gaps.map(f => `<button class="hairline-row" data-act="open" data-v="${esc(f.control_id)}">
-        <div class="row g8" style="min-width:0;flex:1">
-          <span class="status-dot ${f.status}"></span>
-          <span class="mono xs mute">${esc(f.control_id)}</span>
-          <span class="clip ink">${esc(f.control_name)}</span>
-        </div>
-        <span class="xs mute ${f.severity === 'critical' ? 'gaps-flag' : ''}">${esc(f.severity)}</span>
-      </button>`).join('') || '<span class="small mute" style="padding:var(--s-8) 0">No open gaps.</span>'}
-    </div>` : `<p class="mute">No scan yet this session. Pick a bundled sample, a folder on this machine, or a .zip.</p>`;
+    <div class="stack g4" style="border-top:1px solid var(--line);padding-top:var(--s-12);margin-top:var(--s-8)">
+      <span class="lbl">Fix first</span>
+      ${gaps.map(f => `<button class="listrow" style="grid-template-columns:16px 84px minmax(0,1fr) 60px;padding:8px 0" data-act="open" data-v="${esc(f.control_id)}">
+        <span class="status-dot ${f.status}"></span>
+        <span class="mono xs mute">${esc(f.control_id)}</span>
+        <span class="clip">${esc(f.control_name)}</span>
+        <span class="xs mute" style="text-align:right;${f.severity === 'critical' ? 'color:var(--absent);font-weight:500' : ''}">${esc(f.severity)}</span>
+      </button>`).join('') || '<span class="xs mute" style="padding:var(--s-8) 0">No open gaps.</span>'}
+    </div>` : `<p class="mute" style="font-size:13.5px">No scan yet this session. Pick a bundled sample, a folder on this machine, or a .zip.</p>`;
+
   const recent = S.history.length ? `
-    <div class="hairline-list">
+    <div class="stack">
       ${S.history.map(h => `
-        <button class="hairline-row" data-act="load" data-v="${esc(h.id)}" style="${r && h.id === r.id ? 'font-weight:600' : ''}">
+        <button class="listrow" style="grid-template-columns:minmax(0,1fr) 70px 40px;padding:10px 16px;${r && h.id === r.id ? 'background:var(--sunk)' : ''}" data-act="load" data-v="${esc(h.id)}">
           <div class="stack" style="min-width:0">
-            <span class="mono clip" style="font-size:13px">${esc(h.source)}</span>
+            <span class="mono clip" style="font-size:12.5px">${esc(h.source)}</span>
             <span class="mute xs">${esc(h.framework || 'unknown')} · ${plural(h.gaps, 'gap')} · ${new Date(h.scanned_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
           </div>
-          <span class="mono" style="font-size:13px">${h.score}</span>
+          <div class="bar"><i style="width:${h.score}%;background:${scoreColor(h.score)}"></i></div>
+          <span class="mono" style="font-size:12.5px;font-weight:500;text-align:right;color:${scoreColor(h.score)}">${h.score}</span>
         </button>`).join('')}
-    </div>` : '<p class="mute small">Nothing yet. Scans stay here until the server stops; download a report to keep one.</p>';
-  const places = [['CLI', 'copilot scan ./repo --fail-on critical'], ['GitHub Action', 'uses: sidhant223/ai-cyber-defense-copilot@main'],
-    ['Pre-commit', 'hooks: [{id: copilot-scan}]'], ['Docker', 'docker run --rm -v "$PWD:/repo:ro" copilot scan .']];
+    </div>` : '<p class="mute xs" style="padding:16px">Nothing yet. Scans stay here until the server stops; download a report to keep one.</p>';
+
+  const places = [
+    ['CLI', 'copilot scan ./repo --fail-on critical'],
+    ['GitHub Action', 'uses: sidhant223/ai-cyber-defense-copilot@main'],
+    ['Pre-commit', 'hooks: [{id: copilot-scan}]'],
+    ['Docker', 'docker run --rm -v "$PWD:/repo:ro" copilot scan .']
+  ];
+
   return `<div class="page w1100">
-  <div class="stack g16 hero">
+  <div class="stack g12 hero" style="max-width:760px">
     <h1 class="home-headline">Which security controls are missing from your code?</h1>
     <p class="home-sub">A linter finds bad code that exists. This finds good code that should exist and doesn’t: no auth on a route, no rate limit on a login endpoint, a secret sitting in plaintext.</p>
     <div class="home-actions">
-      <button class="btn-solid" data-act="go" data-v="scan">New scan</button>
-      <button class="btn-text" data-act="go" data-v="report" ${r ? '' : 'disabled'}>Open latest report</button>
-      <button class="btn-text" data-act="go" data-v="guide">How to use</button>
+      <button class="btn primary" data-act="go" data-v="scan">New scan</button>
+      <button class="btn" data-act="go" data-v="report" ${r ? '' : 'disabled'}>Open latest report</button>
+      <button class="btn" data-act="go" data-v="guide">How to use</button>
     </div>
   </div>
-  <div class="home-grid">
-    <section class="editorial-section">
-      <div class="section-title">Latest scan</div>
-      <div class="hairline"></div>
+  <div class="grid2s">
+    <section class="panel stack g16">
+      <div class="between"><span class="lbl">Latest scan</span><span class="mono xs mute">${esc(r ? r.source : '')}</span></div>
       ${latest}
     </section>
-    <section class="editorial-section">
-      <div class="between" style="align-items:center">
-        <span class="section-title">Recent scans</span>
-        ${S.history.length ? '<button class="btn-text xs mute" data-act="clearHistory">Clear history</button>' : '<span class="xs mute">this session</span>'}
+    <section class="panel flush stack">
+      <div class="between" style="padding:16px;border-bottom:1px solid var(--line)">
+        <span class="lbl">Recent scans</span>
+        ${S.history.length ? '<button class="click-copy xs mute" data-act="clearHistory">Clear history</button>' : '<span class="xs mute">this session</span>'}
       </div>
-      <div class="hairline"></div>
       ${recent}
     </section>
   </div>
-  <section class="editorial-section" style="margin-top:var(--s-24)">
-    <div class="section-title">Same engine, other places</div>
-    <div class="hairline"></div>
-    <div class="places-list">
+  <section class="stack g12">
+    <span class="lbl">Same engine, other places</span>
+    <div class="cards">
       ${places.map(([t, c]) => `
-        <div class="place-row">
-          <span class="place-name">${esc(t)}</span>
-          <span class="place-cmd mono">${esc(c)}</span>
+        <div class="panel stack g8" style="padding:14px 16px">
+          <span style="font-weight:500;font-size:13.5px">${esc(t)}</span>
+          <span class="mono xs" style="word-break:break-all;color:var(--ink2);line-height:1.5">${esc(c)}</span>
         </div>
       `).join('')}
     </div>
@@ -202,16 +196,15 @@ SCREENS.home = () => {
 };
 
 function chips(r) {
-  const c = r.summary.by_status;
-  const gapCount = (c.absent || 0) + (c.partial || 0);
-  return `<div class="chips-line" style="margin-top:var(--s-8)">
-    ${gapCount ? `<span class="gap-count">${plural(gapCount, 'gap')}</span>` : '0 gaps'} ·
-    ${c.absent ? `<span class="gap-count">${c.absent} absent</span>` : '0 absent'} ·
-    ${c.partial ? `<span class="gap-count">${c.partial} partial</span>` : '0 partial'} ·
-    <b>${c.present}</b> present ·
-    ${c.not_applicable} n/a
-    ${r.summary.controls_suppressed ? ` · ${r.summary.controls_suppressed} accepted` : ''}
-  </div>`;
+  const c = r.summary.by_status, sev = r.summary.gaps_by_severity;
+  const out = [
+    [c.absent + ' absent', 'absent'],
+    [c.partial + ' partial', 'partial'],
+    [c.present + ' present', 'present'],
+    [c.not_applicable + ' n/a', 'na']
+  ].concat(['critical', 'high', 'medium', 'low'].filter(k => sev[k]).map(k => [plural(sev[k], k + ' gap'), k]));
+  if (r.summary.controls_suppressed) out.push([r.summary.controls_suppressed + ' accepted', 'accepted']);
+  return `<div class="row g8">${out.map(([l, cls]) => `<span class="chip ${cls}">${esc(l)}</span>`).join('')}</div>`;
 }
 
 // ---------------------------------------------------------------- Scan
@@ -219,30 +212,28 @@ SCREENS.scan = () => {
   const m = S.meta;
   let left = '';
   if (S.source === 'sample') {
-    left = `<p class="mute small" style="margin-bottom:var(--s-8)">Eight labelled samples with known ground truth. <span class="mono">fastapi-secure-tasks</span> and <span class="mono">express-secure-notes</span> are the negative controls.</p>
-    <div class="samples-table">${(m ? m.samples : []).map(s => `
-      <button class="sample-row ${s.name === S.sample ? 'on' : ''}" data-act="sample" data-v="${esc(s.name)}" aria-pressed="${s.name === S.sample}">
-        <div class="stack" style="min-width:0;flex:1">
-          <span class="mono" style="font-weight:500;font-size:13.5px">${esc(s.name)}</span>
-          <span class="sample-meta">${esc(s.framework || 'unknown')} · ${esc(s.language)} · ${esc(s.kind)}</span>
+    left = `<p class="mute" style="font-size:13px;margin-bottom:var(--s-12)">Eight labelled samples with known ground truth. <span class="mono">fastapi-secure-tasks</span> and <span class="mono">express-secure-notes</span> are the negative controls.</p>
+    <div class="samples">${(m ? m.samples : []).map(s => `
+      <button class="sample ${s.name === S.sample ? 'on' : ''}" data-act="sample" data-v="${esc(s.name)}" aria-pressed="${s.name === S.sample}">
+        <div class="between" style="align-items:flex-start">
+          <span class="mono sample-name">${esc(s.name)}</span>
+          <span class="mono" style="font-weight:500;font-size:12.5px;color:${scoreColor(s.score)}">${s.score} ${esc(s.grade || '—')}</span>
         </div>
-        <div class="row g16" style="align-items:baseline">
-          <span class="mono" style="font-size:13px;font-weight:600">${s.score}</span>
-          <span class="serif mute" style="font-style:italic;font-size:15px;min-width:20px;text-align:right">${esc(s.grade || '—')}</span>
-        </div>
+        <span class="mute xs">${esc(s.framework || 'unknown')} · ${esc(s.language)} · ${esc(s.kind)}</span>
+        <div class="bar"><i style="width:${s.score}%;background:${scoreColor(s.score)}"></i></div>
       </button>`).join('')}</div>`;
   } else if (S.source === 'folder') {
     left = `<div class="stack g16">
       <label class="stack g8">
-        <span class="section-title">Absolute path to repository</span>
+        <span style="font-size:13px;font-weight:500">Absolute path to repository</span>
         <input class="field mono" data-bind="path" value="${esc(S.path)}" placeholder="C:\\Users\\you\\projects\\my-api" spellcheck="false">
       </label>
-      <span class="small mute">Read-only. The folder is walked, indexed and matched; nothing in it is executed. Paths with spaces are fine.</span>
+      <span class="xs mute">Read-only. The folder is walked, indexed and matched; nothing in it is executed. Paths with spaces are fine.</span>
     </div>`;
   } else {
     left = `<label class="drop" id="drop">
       <span style="font-weight:500;font-size:14px">${S.zip ? esc(S.zip.name) : 'Drop a zipped project, or click to choose'}</span>
-      <span class="small mute">A single top-level folder is unwrapped so relative paths stay correct. Extracted to a temporary folder and deleted after the scan.</span>
+      <span class="xs mute">A single top-level folder is unwrapped so relative paths stay correct. Extracted to a temporary folder and deleted after the scan.</span>
       <span class="mono xs mute">.zip only · up to 60 MB</span>
       <input type="file" accept=".zip" data-bind="zip" hidden>
     </label>`;
@@ -254,10 +245,10 @@ SCREENS.scan = () => {
   const scanBanner = S.scanning ? `
     <div class="scan-banner stack g8" role="status" aria-live="polite">
       <div class="between" style="align-items:baseline">
-        <span style="font-family:var(--serif);font-size:18px">Scanning repository…</span>
+        <span style="font-size:16px;font-weight:500">Scanning repository…</span>
         <span class="mono xs mute">${esc(where)}</span>
       </div>
-      <div class="hairline-progress"><div class="hairline-progress-fill" style="width:70%"></div></div>
+      <div class="bar"><i style="width:70%"></i></div>
       <div class="between mono xs mute">
         <span>[1/3] indexing framework & routes</span>
         <span>[2/3] evaluating absent controls</span>
@@ -267,31 +258,30 @@ SCREENS.scan = () => {
 
   return `<div class="page w1100">
   <div class="between" style="align-items:baseline">
-    <h1 class="serif" style="font-size:32px;margin:0">Scan a Repository</h1>
+    <h1 style="font-size:28px;font-weight:500;margin:0">Scan a Repository</h1>
     <span class="mono xs mute">28 controls · static AST + regex</span>
   </div>
-  <div class="hairline"></div>
   <div class="scangrid">
-    <div class="stack g24" style="min-width:0">
+    <div class="stack g20" style="min-width:0">
       ${scanBanner}
       ${tabs([['sample', 'Corpus sample'], ['folder', 'Local folder'], ['zip', 'Upload a .zip']], S.source, 'source')}
       <div class="stack g16">${left}</div>
       ${S.error ? `<div class="error"><b>Scan failed.</b> ${esc(S.error)}${S.report ? ` The previous report (${esc(S.report.source)}) is kept.` : ''}</div>` : ''}
     </div>
-    <div class="editorial-section sticky" style="gap:var(--s-24)">
+    <div class="panel sticky stack g20">
       <div class="stack g8">
-        <span class="section-title">Scope · changes what is scored</span>
+        <span class="lbl">Scope · changes what is scored</span>
         <div class="row g6">${CATS.map(([c, t]) => `<button class="scopechip ${S.scope.includes(c) ? 'on' : ''}" data-act="scope" data-v="${c}" aria-pressed="${S.scope.includes(c)}">${t}</button>`).join('')}</div>
         <span class="xs mute">${S.scope.length ? `Grade withheld: ${S.scope.length} of 5 categories.` : 'Empty means all five, or the project .copilot.yaml. Narrowing withholds the grade.'}</span>
         ${check(S.useConfig, 'useConfig', 'Apply the project .copilot.yaml')}
       </div>
       <div class="stack g8">
-        <span class="section-title">Display · never moves the score</span>
+        <span class="lbl">Display · never moves the score</span>
         ${tabs([['all', 'All'], ['critical', 'Critical'], ['high', 'High+'], ['medium', 'Medium+'], ['low', 'Low+']], S.minSev, 'minSev')}
         ${check(S.showSat, 'showSat', 'Show satisfied controls')}
       </div>
       <div class="code">$ ${esc(cli)}</div>
-      <button class="btn-solid block" data-act="scan" ${ready && !S.scanning ? '' : 'disabled'}>${S.scanning ? 'Scanning…' : 'Scan'}</button>
+      <div><button class="btn primary" data-act="scan" ${ready && !S.scanning ? '' : 'disabled'}>${S.scanning ? 'Scanning…' : 'Scan repository'}</button></div>
     </div>
   </div></div>`;
 };

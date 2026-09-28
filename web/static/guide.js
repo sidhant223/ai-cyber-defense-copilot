@@ -46,54 +46,53 @@ SCREENS.guide = () => {
   const os = S.guideOs || (navigator.platform.toLowerCase().startsWith('win') ? 'windows' : 'unix');
   return `<div class="page w1100">
   <div class="between" style="align-items:baseline">
-    <h1 class="serif" style="font-size:32px;margin:0">Documentation & Guide</h1>
+    <h1 style="font-size:28px;font-weight:500;margin:0">Documentation & Guide</h1>
     <span class="mono xs mute">installation, workflow & reading findings</span>
   </div>
-  <div class="hairline"></div>
 
   <p class="home-sub" style="margin-top:0">Run the app on your computer, then find which security controls are missing from a project. No account, API key or internet connection is needed.</p>
 
-  <section class="editorial-section">
+  <section class="panel stack g16">
     <div class="between" style="align-items:center">
-      <div class="section-title">Part 1 · Run the application</div>
+      <span class="lbl">Part 1 · Run the application</span>
       ${tabs([['windows', 'Windows'], ['unix', 'macOS / Linux']], os, 'guideOs')}
     </div>
-    <div class="hairline-list">${steps(RUN[os], true)}</div>
+    <div class="stack">${steps(RUN[os], true)}</div>
     <span class="xs mute">Port 8000 busy? Add <span class="mono">--port 8001</span>. Prefer not to open a browser automatically? Add <span class="mono">--no-browser</span>.</span>
   </section>
 
-  <section class="editorial-section">
-    <div class="section-title">Part 2 · Use it step by step</div>
-    <div class="hairline-list">${steps(USE, false)}</div>
+  <section class="panel stack g16">
+    <span class="lbl">Part 2 · Use it step by step</span>
+    <div class="stack">${steps(USE, false)}</div>
   </section>
 
-  <section class="editorial-section">
-    <div class="section-title">Reading a finding</div>
-    <div class="hairline-list">
-      <div class="hairline-row">
-        <div class="row g8" style="width:140px;flex:none"><span class="status-dot absent"></span><span class="tag tag-absent">ABSENT</span></div>
+  <section class="panel stack g16">
+    <span class="lbl">Reading a finding</span>
+    <div class="stack">
+      <div class="row g16" style="padding:10px 0;border-bottom:1px solid var(--line)">
+        <div class="row g8" style="width:140px;flex:none"><span class="status-dot absent"></span><span class="chip absent">ABSENT</span></div>
         <span class="mute small">The protection is missing everywhere it is needed.</span>
       </div>
-      <div class="hairline-row">
-        <div class="row g8" style="width:140px;flex:none"><span class="status-dot partial"></span><span class="tag tag-partial">PARTIAL</span></div>
+      <div class="row g16" style="padding:10px 0;border-bottom:1px solid var(--line)">
+        <div class="row g8" style="width:140px;flex:none"><span class="status-dot partial"></span><span class="chip partial">PARTIAL</span></div>
         <span class="mute small">Present in some places, forgotten in others — usually the most useful finding.</span>
       </div>
-      <div class="hairline-row">
-        <div class="row g8" style="width:140px;flex:none"><span class="status-dot present"></span><span class="tag tag-present">PRESENT</span></div>
+      <div class="row g16" style="padding:10px 0;border-bottom:1px solid var(--line)">
+        <div class="row g8" style="width:140px;flex:none"><span class="status-dot present"></span><span class="chip present">PRESENT</span></div>
         <span class="mute small">Every place that needs it has it.</span>
       </div>
-      <div class="hairline-row">
-        <div class="row g8" style="width:140px;flex:none"><span class="status-dot na"></span><span class="tag tag-na">N/A</span></div>
+      <div class="row g16" style="padding:10px 0">
+        <div class="row g8" style="width:140px;flex:none"><span class="status-dot na"></span><span class="chip na">N/A</span></div>
         <span class="mute small">Nothing in the project needs this control.</span>
       </div>
     </div>
     <span class="xs mute">A clean report means none of the 28 checks found a gap. It is not proof that the project is secure.</span>
   </section>
 
-  <section class="editorial-section">
-    <div class="section-title">Prefer the terminal?</div>
-    <div class="cmd">
-      <div class="code" style="padding:var(--s-8) var(--s-16)">copilot scan corpus/samples/flask-notes-app\ncopilot scan ./my-project --format html -o report.html</div>
+  <section class="panel stack g12">
+    <span class="lbl">Prefer the terminal?</span>
+    <div class="row g8" style="align-items:stretch">
+      <div class="code" style="flex:1;padding:var(--s-8) var(--s-16)">copilot scan corpus/samples/flask-notes-app\ncopilot scan ./my-project --format html -o report.html</div>
       <button class="btn sm" data-act="copyCmd" data-v="copilot scan ./my-project --format html -o report.html">Copy</button>
     </div>
   </section></div>`;
