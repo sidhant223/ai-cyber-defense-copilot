@@ -262,114 +262,73 @@ function scoreSection(r) {
   if (r.diff) {
     const d = r.diff;
     const sign = d.scoreDelta > 0 ? '+' : '';
-    const cls = d.scoreDelta > 0 ? 'up' : d.scoreDelta < 0 ? 'down' : 'same';
     const arrow = d.scoreDelta > 0 ? '▲' : d.scoreDelta < 0 ? '▼' : '=';
-    trendHtml = `<span class="score-trend ${cls}" title="Score moved from ${d.prevScore} in previous scan">${arrow} ${sign}${d.scoreDelta} pts</span>`;
+    trendHtml = `<span class="trend mono xs" title="Score moved from ${d.prevScore} in previous scan">${arrow} ${sign}${d.scoreDelta} pts</span>`;
   }
 
   let notice = '';
   if (s.grade_capped_by) {
-    notice = `<div class="notice" style="margin-top:6px"><b>Grade capped at ${esc(s.grade)}:</b> ${esc(s.grade_capped_by)}. A weighted average can sit high while a critical control is missing entirely.</div>`;
+    notice = `<div class="notice"><b>Grade capped at ${esc(s.grade)}:</b> ${esc(s.grade_capped_by)}. A weighted average can sit high while a critical control is missing entirely.</div>`;
   } else if (s.scope === 'partial') {
-    notice = `<div class="notice" style="margin-top:6px"><b>Grade withheld:</b> this run covered ${s.categories_scanned.length} of ${r.categories_available} categories. The score describes that slice only.</div>`;
+    notice = `<div class="notice"><b>Grade withheld:</b> this run covered ${s.categories_scanned.length} of ${r.categories_available} categories. The score describes that slice only.</div>`;
   } else if (!scan.framework) {
-    notice = `<div class="notice" style="margin-top:6px"><b>Framework note:</b> No framework identified with confidence, so framework-specific controls were not evaluated.</div>`;
+    notice = `<div class="notice"><b>Framework note:</b> No framework identified with confidence, so framework-specific controls were not evaluated.</div>`;
   }
 
   const passRate = s.controls_scored ? Math.round(100 * (c.present || 0) / s.controls_scored) : 100;
   const fwName = scan.framework ? (scan.framework.charAt(0).toUpperCase() + scan.framework.slice(1)) : 'General';
   const langName = scan.language ? (scan.language.charAt(0).toUpperCase() + scan.language.slice(1)) : 'Python';
 
-  return `<section class="panel pad stack g16 executive-scorecard">
-    <div class="kpi-grid">
-      <!-- Tile 1: Verdict Hero -->
-      <div class="kpi-card hero-kpi">
-        <div class="between" style="align-items:flex-start">
-          <span class="kpi-label">Posture Score</span>
-          ${trendHtml}
-        </div>
-        <div class="kpi-score-row">
-          <span class="score48" style="color:${scoreColor(s.posture_score)}">${s.posture_score}</span>
-          <span class="kpi-score-total">/ 100</span>
-        </div>
-        <div class="kpi-footer">
-          <span class="kpi-grade-badge" style="background:${scoreColor(s.posture_score)}">${gradeText(r)}</span>
-          <span class="xs mute mono">${s.posture_score >= 80 ? 'Hardened' : s.posture_score >= 60 ? 'Needs Attention' : 'Critical Action'}</span>
-        </div>
+  return `<section class="report-hero">
+    <div class="between" style="align-items:baseline">
+      <div class="score-jumbo">
+        <span class="num">${s.posture_score}</span>
+        <span class="grade">${gradeText(r)}</span>
+        ${trendHtml}
       </div>
+      <span class="mono xs mute">${esc(r.source)} · scanned ${new Date(r.scanned_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+    </div>
 
-      <!-- Tile 2: Actionable Gaps -->
-      <div class="kpi-card ${gapsCount > 0 ? 'gap-kpi' : 'clean-kpi'}">
-        <div class="between" style="align-items:flex-start">
-          <span class="kpi-label ${gapsCount > 0 ? 'text-gap' : ''}">Security Gaps</span>
-          <span class="kpi-status-dot ${gapsCount > 0 ? 'pulse-gap' : 'clean'}"></span>
-        </div>
-        <div class="kpi-val ${gapsCount > 0 ? 'text-gap' : 'text-clean'}">${gapsCount} ${gapsCount === 1 ? 'Gap' : 'Gaps'}</div>
-        <div class="kpi-footer mono xs ${gapsCount > 0 ? 'text-gap-sub' : 'mute'}">
-          ${gapsCount > 0 ? `<span>${c.absent || 0} absent · ${c.partial || 0} partial</span><span class="kpi-urgent-tag">Action Needed</span>` : '<span>0 active gaps detected</span>'}
-        </div>
+    <div class="hairline-progress">
+      <div class="hairline-progress-fill" style="width:${s.posture_score}%"></div>
+    </div>
+
+    <div class="report-facts-row">
+      <div class="report-fact-col">
+        <span class="k">TARGET</span>
+        <span class="v">${esc(fwName)} (${esc(langName)})</span>
       </div>
-
-      <!-- Tile 3: Control Compliance -->
-      <div class="kpi-card verified-kpi">
-        <div class="between" style="align-items:flex-start">
-          <span class="kpi-label">Controls Verified</span>
-          <span class="kpi-pill mono xs">${passRate}% Pass</span>
-        </div>
-        <div class="kpi-val">${c.present || 0} <span class="kpi-val-sub">/ ${s.controls_scored}</span></div>
-        <div class="kpi-footer mono xs mute">
-          <span>${c.present || 0} present · ${c.not_applicable || 0} n/a · ${s.controls_suppressed || 0} accepted</span>
-        </div>
+      <div class="report-fact-col">
+        <span class="k">FILES</span>
+        <span class="v">${scan.files_scanned} files (${scan.skipped_files} skipped)</span>
       </div>
-
-      <!-- Tile 4: Target Profile -->
-      <div class="kpi-card scope-kpi">
-        <div class="between" style="align-items:flex-start">
-          <span class="kpi-label">Inspection Target</span>
-          <span class="mono xs mute">${scan.scan_duration_ms} ms</span>
-        </div>
-        <div class="kpi-val" style="font-size:18px;font-weight:600">
-          ${esc(fwName)} <span class="mono xs mute" style="font-weight:400">(${esc(langName)})</span>
-        </div>
-        <div class="kpi-footer mono xs mute">
-          <span>${scan.files_scanned} files parsed · ${scan.skipped_files} skipped</span>
-        </div>
+      <div class="report-fact-col">
+        <span class="k">DURATION</span>
+        <span class="v">${scan.scan_duration_ms} ms</span>
+      </div>
+      <div class="report-fact-col">
+        <span class="k">COMPLIANCE</span>
+        <span class="v">${c.present || 0}/${s.controls_scored} passed (${passRate}%)</span>
+      </div>
+      <div class="report-fact-col">
+        <span class="k">GAPS</span>
+        <span class="v ${gapsCount ? 'gaps-flag' : ''}">${gapsCount} active (${c.absent || 0} absent, ${c.partial || 0} partial)</span>
       </div>
     </div>
 
-    <!-- Health Progress Bar & Calculation Detail Toggle -->
-    <div class="scorecard-progress-zone stack g8">
-      <div class="between" style="align-items:center">
-        <div class="row g8" style="align-items:center">
-          <span class="small" style="font-weight:500">Overall Defense Posture</span>
-          <span class="mono xs mute">${s.posture_score}% weighted coverage</span>
-        </div>
-        <button class="calc-toggle-btn mono xs" data-act="toggleCalcDetails">
-          <span>${S.showCalcDetails ? '▾' : '▸'} Calculation &amp; Scoring Details</span>
-        </button>
-      </div>
-
-      <div class="health-bar-container">
-        <div class="health-bar-fill" style="width:${s.posture_score}%;background:${scoreColor(s.posture_score)}"></div>
-      </div>
-
-      ${S.showCalcDetails ? `
-        <div class="calc-drawer stack g6">
-          <div class="between mono xs">
-            <span class="mute">Formula: score = 100 * sum(weight * credit) / sum(weight)</span>
-            <span class="ink" style="font-weight:600">${r.weights.earned.toFixed(1)} earned / ${r.weights.total} total weight = ${s.posture_score}</span>
-          </div>
-          <div class="row g6" style="margin-top:2px">
-            <span class="chip" style="color:${SC.absent}">${c.absent || 0} absent</span>
-            <span class="chip" style="color:${SC.partial}">${c.partial || 0} partial</span>
-            <span class="chip" style="color:${SC.present}">${c.present || 0} present</span>
-            <span class="chip" style="color:var(--na)">${c.not_applicable || 0} n/a</span>
-            ${Object.keys(sev).filter(k => sev[k]).map(k => `<span class="chip" style="color:var(--mute)">${plural(sev[k], k + ' gap')}</span>`).join('')}
-            ${s.controls_suppressed ? `<span class="chip" style="color:var(--mute)">${s.controls_suppressed} accepted</span>` : ''}
-          </div>
-        </div>
-      ` : ''}
+    <div class="between" style="align-items:center">
+      ${chips(r)}
+      <button class="btn-text xs mute" data-act="toggleCalcDetails">${S.showCalcDetails ? '▾ Hide scoring details' : '▸ Calculation & scoring details'}</button>
     </div>
+
+    ${S.showCalcDetails ? `
+      <div class="code" style="margin-top:var(--s-4);font-size:12px">
+        <div class="between">
+          <span>score = 100 × Σ(weight × credit) / Σ(weight)</span>
+          <span style="font-weight:600">${r.weights.earned.toFixed(1)} earned / ${r.weights.total} total weight = ${s.posture_score}</span>
+        </div>
+      </div>
+    ` : ''}
 
     ${notice}
   </section>`;
@@ -379,7 +338,7 @@ function evidenceHtml(f) {
   const hide = f.category === 'secret_management' && !S.reveal;
   return f.evidence.map(e => {
     if (!e.file_path) {
-      return `<div class="dashed" style="padding:12px 14px"><span class="eyebrow">Negative evidence · searched, not found</span>
+      return `<div class="dashed" style="padding:12px 14px"><span class="section-title">Negative evidence · searched, not found</span>
         <span style="font-size:13px">${esc(e.note || f.message)}</span></div>`;
     }
     const loc = e.line_number ? `${e.file_path}:${e.line_number}` : e.file_path;
@@ -393,7 +352,7 @@ function evidenceHtml(f) {
     if (e.context && e.context.length) {
       return `<div class="evbox">${head}<div class="src">${e.context.map(([n, t]) =>
         `<div class="ln ${n === e.line_number ? 'hit' : ''}"><span class="n">${n}</span><span class="t">${highlightLine(t, ext)}</span></div>`).join('')}</div>
-        <div class="legend"><span><i></i>matched line · ${e.context.length} lines of context</span></div></div>`;
+        <div class="legend"><span>matched line · ${e.context.length} lines of context</span></div></div>`;
     }
     return `<div class="evbox">${head}${e.snippet ? `<div class="src"><div class="ln hit"><span class="n">${e.line_number || ''}</span><span class="t">${highlightLine(e.snippet, ext)}</span></div></div>` : ''}</div>`;
   }).join('');
@@ -411,36 +370,46 @@ function detailHtml(f, r) {
     <div class="diff-body">${diff.lines.map(l => `<div class="diff-ln ${l.type}"><span class="sign">${l.type === 'add' ? '+' : l.type === 'del' ? '−' : ' '}</span><span class="text">${highlightLine(l.text, ext)}</span></div>`).join('')}</div>
   </div>` : '';
 
-  return `<article class="panel pad stack g16 sticky">
-    <div class="row">
-      ${fTagHtml(f)}
-      <span class="mono" style="font-size:12.5px">${esc(f.control_id)}</span>
-      <span class="caps">${f.severity} · weight ${f.weight}</span><span class="caps">· confidence ${esc(f.confidence)}</span>
+  return `<article class="detail-panel sticky">
+    <div class="row g16" style="align-items:baseline">
+      <span class="status-dot ${f.status}"></span>
+      <span class="tag ${f.status === 'absent' ? 'tag-absent' : f.status === 'partial' ? 'tag-partial' : f.status === 'present' ? 'tag-present' : 'tag-na'}">${f.suppressed ? 'ACCEPTED' : (SL[f.status] || f.status.toUpperCase())}</span>
+      <span class="mono xs mute">${esc(f.control_id)}</span>
+      <span class="caps">${f.severity} · weight ${f.weight} · conf ${esc(f.confidence)}</span>
     </div>
-    <div class="stack g6"><h2 style="font-size:20px;font-weight:600">${esc(f.control_name)}</h2>
-      <div class="row mono xs mute" style="gap:12px">${f.cwe ? `<span>${esc(f.cwe)}</span>` : ''}${f.owasp ? `<span>OWASP ${esc(f.owasp)}</span>` : ''}<span>fp ${esc((f.fingerprint || '').slice(0, 16))}</span></div></div>
-    <p style="font-size:15px;line-height:1.5">${esc(f.message)}</p>
-    ${f.suppressed ? `<div class="soft" style="font-size:12.5px">Accepted: ${esc(f.suppression_reason)}</div>` : ''}
-    ${ev ? `<div class="stack g10"><span class="eyebrow">Evidence · ${f.evidence.length}</span>${ev}</div>` : ''}
-    <div class="soft"><span class="eyebrow">Remediation</span><span>${esc(f.remediation_hint)}</span></div>
+    <div class="stack g6">
+      <h2>${esc(f.control_name)}</h2>
+      <div class="row mono xs mute" style="gap:12px">
+        ${f.cwe ? `<span>${esc(f.cwe)}</span>` : ''}
+        ${f.owasp ? `<span>OWASP ${esc(f.owasp)}</span>` : ''}
+        <span>fp ${esc((f.fingerprint || '').slice(0, 16))}</span>
+      </div>
+    </div>
+    <p class="desc">${esc(f.message)}</p>
+    ${f.suppressed ? `<div class="notice"><b>Accepted:</b> ${esc(f.suppression_reason)}</div>` : ''}
+    ${ev ? `<div class="stack g8"><span class="section-title">Evidence · ${f.evidence.length}</span>${ev}</div>` : ''}
+    <div class="stack g6">
+      <span class="section-title">Remediation</span>
+      <span class="remed-hint">${esc(f.remediation_hint)}</span>
+    </div>
 
     ${f.is_gap ? `
       <div class="stack g8">
         <div class="between" style="align-items:center">
-          <span class="eyebrow">Suggested fix</span>
+          <span class="section-title">Suggested fix</span>
           ${tabs([['diff', 'Unified Diff'], ['prompt', 'Fix Prompt']], S.detailTab, 'detailTab')}
         </div>
         ${S.detailTab === 'diff' ? diffBox : `
-          <div class="soft">
+          <div class="stack g8">
             <div class="code">${esc(f.fix_prompt)}</div>
-            <div class="row" style="margin-top:8px"><button class="btn sm" data-act="copyFix" data-v="${esc(f.control_id)}">Copy prompt</button></div>
+            <div><button class="btn sm" data-act="copyFix" data-v="${esc(f.control_id)}">Copy prompt</button></div>
           </div>
         `}
       </div>
     ` : ''}
 
-    <div class="row" style="margin-top:4px">
-      ${f.is_gap ? `<button class="btn sm" data-act="accept" data-v="${esc(f.control_id)}">Accept with a reason…</button>` : ''}
+    <div class="row g16" style="padding-top:var(--s-16);border-top:1px solid var(--line);align-items:baseline">
+      ${f.is_gap ? `<button class="btn sm" data-act="accept" data-v="${esc(f.control_id)}">Accept with reason…</button>` : ''}
       <button class="btn sm" data-act="explain" data-v="${esc(f.control_id)}">Explain rule</button>
       <span class="mono xs mute">$ copilot rules explain ${esc(f.control_id)}</span>
     </div>
@@ -461,70 +430,73 @@ SCREENS.report = () => {
   }).filter(g => g.rows.length).sort((a, b) => a.rank - b.rank);
   const sel = r.findings.find(f => f.control_id === selId);
   const noRows = shown.length === 0
-    ? `<div class="panel" style="padding:28px;${r.findings.some(f => f.is_gap) ? '' : 'color:var(--present);font-weight:500'}">${
+    ? `<div class="dashed" style="padding:var(--s-24);margin:var(--s-16) 0">${
       r.findings.some(f => f.is_gap) ? 'No findings match the current filters. The score is unchanged.'
         : 'No gaps found in the controls that applied. That is not proof the project is secure; check coverage above.'}</div>` : '';
-  const skipped = r.skipped_controls.length ? `<div class="panel">
-    <button class="between" style="width:100%;padding:11px 14px;font-size:12.5px;color:var(--ink2)" data-act="skipped" aria-expanded="${S.showSkipped}">
-      <span>${plural(r.skipped_controls.length, 'control')} not evaluated</span><span class="mono">${S.showSkipped ? '−' : '+'}</span></button>
-    ${S.showSkipped ? r.skipped_controls.map(k => `<div class="row" style="padding:8px 14px;border-top:1px solid var(--line);font-size:12.5px;flex-wrap:nowrap">
-      <span class="mono small" style="width:84px;flex:none">${esc(k.control_id)}</span><span class="mute">${esc(k.reason)}</span></div>`).join('') : ''}</div>` : '';
-  const problems = r.problems.length ? `<div class="notice">${r.problems.map(esc).join('<br>')}</div>` : '';
+  const skipped = r.skipped_controls.length ? `<div class="hairline-list" style="margin-top:var(--s-24)">
+    <button class="hairline-row" data-act="skipped" aria-expanded="${S.showSkipped}">
+      <span class="mute">${plural(r.skipped_controls.length, 'control')} not evaluated</span>
+      <span class="mono">${S.showSkipped ? '−' : '+'}</span>
+    </button>
+    ${S.showSkipped ? r.skipped_controls.map(k => `
+      <div class="hairline-row" style="padding:var(--s-4) 0">
+        <span class="mono xs" style="width:84px;flex:none">${esc(k.control_id)}</span>
+        <span class="mute xs">${esc(k.reason)}</span>
+      </div>`).join('') : ''}
+  </div>` : '';
+  const problems = r.problems.length ? `<div class="notice" style="margin-top:var(--s-16)">${r.problems.map(esc).join('<br>')}</div>` : '';
 
   const files = uniqueFilesOf(r.findings);
   const isFiltered = S.query || S.minSev !== 'all' || S.statusFilter !== 'all' || S.fileFilter !== 'all';
   const gapsCount = r.findings.filter(f => f.is_gap).length;
   const satCount = r.findings.filter(f => f.status === 'present').length;
 
-  return `<div class="page w1360">
+  return `<div class="page w1100">
   ${scoreSection(r)}
-  <div class="panel pad-s filter-toolbar">
-    <!-- Primary Filter Tier: Search & Status Pills -->
-    <div class="filter-tier-1">
-      <div class="search-wrapper">
-        <span class="search-icon">🔍</span>
-        <input class="field" data-bind="query" value="${esc(S.query)}" placeholder="Search by id, name, category, or file (/ to focus)..." aria-label="Filter findings">
-        <span class="search-kbd"><span class="kbd">/</span></span>
-      </div>
-      <div class="row g6">
+  <div class="report-filter-bar">
+    <input class="filter-search-input mono" data-bind="query" value="${esc(S.query)}" placeholder="Filter by id, name, category, or file (/ to focus)..." aria-label="Filter findings">
+    <div class="between" style="align-items:center">
+      <div class="row g16" style="align-items:center">
         ${tabs([
           ['all', `All (${r.findings.length})`],
-          ['gaps', `Gaps Only (${gapsCount})`],
+          ['gaps', `Gaps (${gapsCount})`],
           ['present', `Satisfied (${satCount})`]
         ], S.statusFilter, 'statusFilter')}
-      </div>
-    </div>
-
-    <!-- Secondary Filter Tier: Severity, File dropdown, Secrets, Count -->
-    <div class="filter-tier-2">
-      <div class="row g10">
-        <div class="row g6">
-          <span class="eyebrow" style="font-size:10px">Severity:</span>
-          ${tabs([['all', 'All'], ['critical', 'Critical'], ['high', 'High+'], ['medium', 'Medium+']], S.minSev, 'minSev')}
-        </div>
+        <span class="mute">·</span>
+        ${tabs([['all', 'All'], ['critical', 'Critical'], ['high', 'High+'], ['medium', 'Medium+']], S.minSev, 'minSev')}
         ${files.length > 1 ? `
-          <div class="row g6" style="margin-left:6px">
-            <span class="eyebrow" style="font-size:10px">File:</span>
-            <select class="field mono" data-act="fileFilter" style="width:auto;min-width:140px;max-width:200px;padding:4px 8px;font-size:12px" aria-label="Filter by file">
-              <option value="all" ${S.fileFilter === 'all' ? 'selected' : ''}>All files (${files.length})</option>
-              ${files.map(f => `<option value="${esc(f)}" ${S.fileFilter === f ? 'selected' : ''}>${esc(f)}</option>`).join('')}
-            </select>
-          </div>` : ''}
-        ${check(S.reveal, 'reveal', 'Reveal secret excerpts')}
-        ${isFiltered ? `<button class="xs mute click-copy" data-act="clearFilters" style="margin-left:4px">Clear filters</button>` : ''}
+          <select class="field mono" data-act="fileFilter" style="width:auto;min-width:130px;max-width:180px;padding:2px 4px;font-size:12px" aria-label="Filter by file">
+            <option value="all" ${S.fileFilter === 'all' ? 'selected' : ''}>All files (${files.length})</option>
+            ${files.map(f => `<option value="${esc(f)}" ${S.fileFilter === f ? 'selected' : ''}>${esc(f)}</option>`).join('')}
+          </select>` : ''}
+        ${check(S.reveal, 'reveal', 'Reveal secrets')}
+        ${isFiltered ? `<button class="btn-text xs mute" data-act="clearFilters">Clear filters</button>` : ''}
       </div>
-      <span class="small mute">Showing ${shown.length} of ${r.findings.length} controls · <span class="kbd">J</span>/<span class="kbd">K</span></span>
+      <span class="mono xs mute">Showing ${shown.length} of ${r.findings.length} · <span class="kbd">j</span>/<span class="kbd">k</span></span>
     </div>
   </div>
 
   <div class="grid2">
-    <div class="stack g14" style="min-width:0">
+    <div class="stack" style="min-width:0">
       ${noRows}
-      ${groups.map(g => `<div class="panel flush">
-        <div class="gh"><span style="font-weight:600">${g.t}</span><span class="small mute">${plural(g.gaps, 'gap')} of ${plural(g.all.length, 'control')}</span></div>
-        ${g.rows.map(f => `<button class="listrow frow ${f.control_id === selId ? 'on' : ''}" data-act="pick" data-v="${esc(f.control_id)}" aria-pressed="${f.control_id === selId}">
-          ${fTagHtml(f)}<span class="mono small ink2">${esc(f.control_id)}</span>
-          <span class="clip">${esc(f.control_name)}</span><span class="caps">${f.severity}</span></button>`).join('')}</div>`).join('')}
+      ${groups.map(g => `
+        <div class="category-block">
+          <div class="category-header">
+            <h3>${g.t}</h3>
+            <span class="count mono">${plural(g.gaps, 'gap')} · ${plural(g.all.length, 'control')}</span>
+          </div>
+          <div class="hairline-list">
+            ${g.rows.map(f => `
+              <button class="control-row ${f.control_id === selId ? 'on' : ''}" data-act="pick" data-v="${esc(f.control_id)}" aria-pressed="${f.control_id === selId}">
+                <span class="status-dot ${f.status}"></span>
+                <span class="id">${esc(f.control_id)}</span>
+                <span class="name">${esc(f.control_name)}</span>
+                <span class="sev ${f.severity === 'critical' ? 'critical' : ''}">${esc(f.severity)}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
       ${skipped}${problems}
     </div>
     ${sel ? detailHtml(sel, r) : ''}
