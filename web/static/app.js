@@ -4,7 +4,8 @@
 'use strict';
 
 const S = {
-  screen: 'home', theme: store('theme') || 'light', menu: !isNarrow() && store('menu') !== 'closed', meta: null, history: [], report: null,
+  screen: 'home', theme: store('theme') || 'light', menu: !isNarrow() && store('menu') !== 'closed',
+  rail: store('rail') === 'true', meta: null, history: [], report: null,
   sel: null, minSev: 'all', statusFilter: 'all', fileFilter: 'all', detailTab: 'diff', showSat: false, query: '', reveal: false, showSkipped: false,
   showCalcDetails: false,
   source: 'sample', sample: 'flask-notes-app', path: '', zip: null, scope: [], useConfig: true,
@@ -49,6 +50,32 @@ function check(on, act, label) {
   return `<button class="check ${on ? 'on' : ''}" data-act="${act}" role="checkbox" aria-checked="${on}"><span class="box"><i></i></span>${esc(label)}</button>`;
 }
 
+function logoMark(size = 24) {
+  return `<svg viewBox="0 0 32 32" fill="none" width="${size}" height="${size}" aria-hidden="true">
+    <rect x="2" y="2" width="8" height="8" rx="2" fill="currentColor" fill-opacity="0.85"/>
+    <rect x="12" y="2" width="8" height="8" rx="2" fill="currentColor" fill-opacity="0.85"/>
+    <rect x="22" y="2" width="8" height="8" rx="2" fill="currentColor" fill-opacity="0.85"/>
+    <rect x="2" y="12" width="8" height="8" rx="2" fill="currentColor" fill-opacity="0.85"/>
+    <rect x="12" y="12" width="8" height="8" rx="2" fill="currentColor" fill-opacity="0.85"/>
+    <rect x="22.75" y="12.75" width="6.5" height="6.5" rx="1.6" fill="var(--absent-tint)" stroke="var(--absent)" stroke-width="1.3" stroke-dasharray="2.5 1.5"/>
+    <rect x="2" y="22" width="8" height="8" rx="2" fill="currentColor" fill-opacity="0.85"/>
+    <rect x="12" y="22" width="8" height="8" rx="2" fill="currentColor" fill-opacity="0.85"/>
+    <rect x="22" y="22" width="8" height="8" rx="2" fill="currentColor" fill-opacity="0.85"/>
+  </svg>`;
+}
+
+const NAV_ICONS = {
+  home: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  scan: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
+  report: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+  routes: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v6"/><path d="M9 6h6"/></svg>',
+  accepted: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>',
+  rules: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+  eval: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  how: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  guide: '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+};
+
 async function api(path, opts = {}) {
   const res = await fetch(path, opts);
   const data = await res.json().catch(() => ({ error: `Server returned ${res.status}` }));
@@ -60,17 +87,80 @@ async function api(path, opts = {}) {
 function sidebar() {
   const r = S.report, m = S.meta;
   const gaps = r ? r.findings.filter(f => f.is_gap).length : '';
-  const nav = [['home', 'Home', ''], ['scan', 'Scan', '', 'Target'], ['report', 'Report', gaps],
-    ['routes', 'Routes', ''], ['accepted', 'Accepted', r && r.summary.controls_suppressed ? r.summary.controls_suppressed : ''],
-    ['rules', 'Rules', m ? m.controls : '', 'Tool'], ['eval', 'Evaluation', ''], ['how', 'How it works', ''], ['guide', 'Guide', '', 'Help']];
+  const nav = [
+    ['home', 'Home', '', ''],
+    ['scan', 'Scan', '', 'Target'],
+    ['report', 'Report', gaps, ''],
+    ['routes', 'Routes', '', ''],
+    ['accepted', 'Accepted', r && r.summary.controls_suppressed ? r.summary.controls_suppressed : '', ''],
+    ['rules', 'Rules', m ? m.controls : '', 'Tool'],
+    ['eval', 'Evaluation', '', ''],
+    ['how', 'How it works', '', ''],
+    ['guide', 'Guide', '', 'Help']
+  ];
+
+  const latestCard = r ? `
+    <button class="side-latest" data-act="go" data-v="report" title="Open latest report: ${esc(r.source)}">
+      <div class="side-latest-full stack g4">
+        <div class="side-latest-header">
+          <span class="side-latest-target">${esc(r.source)}</span>
+          <span class="side-latest-score mono" style="color:${scoreColor(r.summary.posture_score)}">${r.summary.posture_score} <span class="xs mute">${r.summary.grade || '—'}</span></span>
+        </div>
+        <div class="side-mini-bar"><i style="width:${r.summary.posture_score}%;background:${scoreColor(r.summary.posture_score)}"></i></div>
+        <div class="side-latest-meta">
+          <span>${plural(gaps, 'gap')}</span>
+          <span>${r.summary.controls_scored} scored</span>
+        </div>
+      </div>
+      <div class="side-latest-compact">
+        <span class="mono xs" style="font-weight:500;color:${scoreColor(r.summary.posture_score)}">${r.summary.posture_score}</span>
+        <span class="mono xs mute">${r.summary.grade || '—'}</span>
+      </div>
+    </button>` : `
+    <div class="side-latest" style="cursor:default">
+      <div class="side-latest-full">
+        <span class="side-latest-empty">No scan yet</span>
+      </div>
+      <div class="side-latest-compact">
+        <span class="mono xs mute">—</span>
+      </div>
+    </div>`;
+
   return `<aside class="side" id="side" aria-label="Main menu" ${S.menu ? '' : 'inert'}>
-  <button class="brand" data-act="go" data-v="home">
-    <div><b>Defense Copilot</b><span style="display:block;margin-top:2px">v${esc(m ? m.version : '')} · ${m ? m.controls : ''} controls</span></div>
-  </button>
+  <div class="side-header">
+    <button class="brand" data-act="go" data-v="home" title="Defense Copilot">
+      <span class="brand-mark">${logoMark(26)}</span>
+      <div class="brand-text">
+        <b>Defense Copilot</b>
+        <span>v${esc(m ? m.version : '0.1.0')} · ${m ? m.controls : '28'} controls</span>
+      </div>
+    </button>
+    <button class="rail-toggle" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}" title="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}">
+      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+    </button>
+  </div>
   <nav aria-label="Screens">${nav.map(([k, l, b, h]) => `${h ? `<div class="navhead">${h}</div>` : ''}
-    <button class="navbtn ${S.screen === k ? 'on' : ''}" data-act="go" data-v="${k}" ${S.screen === k ? 'aria-current="page"' : ''}>
-      <span>${l}</span><span class="badge">${esc(b)}</span></button>`).join('')}</nav>
-  <div class="sidefoot"><span>static analysis · no network · runs nothing · rule-based guidance</span></div>
+    <button class="navbtn ${S.screen === k ? 'on' : ''}" data-act="go" data-v="${k}" ${S.screen === k ? 'aria-current="page"' : ''} title="${l}">
+      <span class="navbtn-main">
+        <span class="nav-icon">${NAV_ICONS[k] || ''}</span>
+        <span class="nav-label">${l}</span>
+      </span>
+      <span class="badge">${esc(b)}</span>
+    </button>`).join('')}</nav>
+  ${latestCard}
+  <div class="sidefoot">
+    <div class="side-actions">
+      <div class="theme-toggle" role="group" aria-label="Theme">
+        <button class="${S.theme === 'light' ? 'on' : ''}" data-act="theme" data-v="light" title="Light theme">Light</button>
+        <span class="mute">/</span>
+        <button class="${S.theme === 'dark' ? 'on' : ''}" data-act="theme" data-v="dark" title="Dark theme">Dark</button>
+      </div>
+      <button class="rail-toggle" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}" title="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}">
+        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
+    </div>
+    <span>static analysis · offline · runs nothing</span>
+  </div>
 </aside>`;
 }
 
@@ -102,7 +192,7 @@ function render() {
   const caret = focus ? document.activeElement.selectionStart : null;
   const body = (SCREENS[S.screen] || SCREENS.home)();
   const app = document.getElementById('app');
-  app.className = 'shell ' + (S.menu ? 'menu-open' : 'menu-closed');
+  app.className = 'shell ' + (S.menu ? 'menu-open' : 'menu-closed') + (S.rail ? ' rail' : '');
   app.innerHTML = sidebar() + (S.menu && isNarrow() ? '<div class="scrim" data-act="menu"></div>' : '') +
     `<main>${topbar()}${body}</main>` + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : '');
   if (focus) {   // keep typing position across re-renders
@@ -152,23 +242,90 @@ SCREENS.home = () => {
         </button>`).join('')}
     </div>` : '<p class="mute xs" style="padding:16px">Nothing yet. Scans stay here until the server stops; download a report to keep one.</p>';
 
-  const places = [
-    ['CLI', 'copilot scan ./repo --fail-on critical'],
-    ['GitHub Action', 'uses: sidhant223/ai-cyber-defense-copilot@main'],
-    ['Pre-commit', 'hooks: [{id: copilot-scan}]'],
-    ['Docker', 'docker run --rm -v "$PWD:/repo:ro" copilot scan .']
+  const previewSegs = [
+    'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent',
+    'partial', 'partial',
+    'present', 'present', 'present', 'present', 'present', 'present', 'present',
+    'na', 'na', 'na', 'na', 'na', 'na'
   ];
 
-  return `<div class="page w1100">
-  <div class="stack g12 hero" style="max-width:760px">
-    <h1 class="home-headline">Which security controls are missing from your code?</h1>
-    <p class="home-sub">A linter finds bad code that exists. This finds good code that should exist and doesn’t: no auth on a route, no rate limit on a login endpoint, a secret sitting in plaintext.</p>
-    <div class="home-actions">
-      <button class="btn primary" data-act="go" data-v="scan">New scan</button>
-      <button class="btn" data-act="go" data-v="report" ${r ? '' : 'disabled'}>Open latest report</button>
-      <button class="btn" data-act="go" data-v="guide">How to use</button>
+  const places = [
+    {
+      title: 'CLI',
+      cmd: 'copilot scan ./repo --fail-on critical',
+      tileClass: 'tile-cli',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 12 4 7"/><line x1="12" y1="19" x2="20" y2="19"/></svg>'
+    },
+    {
+      title: 'GitHub Action',
+      cmd: 'uses: sidhant223/ai-cyber-defense-copilot@main',
+      tileClass: 'tile-gh',
+      icon: '<svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>'
+    },
+    {
+      title: 'Pre-commit',
+      cmd: 'hooks: [{id: copilot-scan}]',
+      tileClass: 'tile-pre',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="21" cy="12" r="1" fill="currentColor"/></svg>'
+    },
+    {
+      title: 'Docker',
+      cmd: 'docker run --rm -v "$PWD:/repo:ro" copilot scan .',
+      tileClass: 'tile-docker',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="2" height="2"/><rect x="5" y="7" width="2" height="2"/><rect x="8" y="7" width="2" height="2"/><rect x="5" y="4" width="2" height="2"/><rect x="8" y="4" width="2" height="2"/><rect x="11" y="4" width="2" height="2"/><rect x="11" y="7" width="2" height="2"/><rect x="14" y="7" width="2" height="2"/><path d="M1 10.5h18c.5 0 2.5 0 3.5-1.5 0 0 .5 3.5-3 5-2 1-4.5 1-7.5 1-4 0-7.5-1-9-3l-2-1.5z"/></svg>'
+    }
+  ];
+
+  return `<div class="page w1140">
+  <div class="hero-wrap">
+    <div class="stack g12 hero">
+      <div class="hero-pill">Static analysis · runs offline · 28 controls</div>
+      <h1 class="hero-headline">Which security controls are <span class="hero-hl">missing</span> from your code?</h1>
+      <p class="hero-sub">A linter finds bad code that exists. This finds good code that should exist and doesn’t: no auth on a route, no rate limit on a login endpoint, a secret sitting in plaintext.</p>
+      <div class="hero-actions">
+        <button class="btn primary btn-hero" data-act="go" data-v="scan">New scan <span class="arrow">→</span></button>
+        <button class="btn btn-hero" data-act="go" data-v="report" ${r ? '' : 'disabled'}>Open latest report</button>
+        <button class="btn-text btn-hero-link" data-act="go" data-v="guide">How to use</button>
+      </div>
+    </div>
+    <div class="hero-preview-container">
+      <div class="hero-dot-bg"></div>
+      <div class="hero-glow"></div>
+      <div class="hero-preview-card" data-act="sample" data-v="flask-notes-app" title="Inspect sample repository: flask-notes-app">
+        <div class="hero-preview-top">
+          <div class="stack g4">
+            <span class="lbl">Live preview</span>
+            <span class="hero-preview-target">flask-notes-app</span>
+          </div>
+          <div>
+            <span class="hero-preview-score">46</span>
+            <span class="hero-preview-grade">F</span>
+          </div>
+        </div>
+        <div class="preview-bar" aria-label="Segmented score bar preview" title="13 absent, 2 partial, 7 present, 6 n/a">
+          ${previewSegs.map((st, i) => `<span class="preview-seg ${st}" style="--i:${i}"></span>`).join('')}
+        </div>
+        <div class="hero-preview-findings">
+          <div class="hero-preview-row">
+            <span class="status-dot absent"></span>
+            <span class="clip"><b class="mono xs">AUTH-001</b> No auth on write routes</span>
+            <span class="hero-preview-badge" style="color:var(--absent)">critical</span>
+          </div>
+          <div class="hero-preview-row">
+            <span class="status-dot absent"></span>
+            <span class="clip"><b class="mono xs">RATE-001</b> No rate limit on login endpoint</span>
+            <span class="hero-preview-badge" style="color:var(--partial)">high</span>
+          </div>
+          <div class="hero-preview-row">
+            <span class="status-dot partial"></span>
+            <span class="clip"><b class="mono xs">SEC-002</b> Plaintext credentials in config</span>
+            <span class="hero-preview-badge mute">medium</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
   <div class="grid2s">
     <section class="panel stack g16">
       <div class="between"><span class="lbl">Latest scan</span><span class="mono xs mute">${esc(r ? r.source : '')}</span></div>
@@ -182,13 +339,23 @@ SCREENS.home = () => {
       ${recent}
     </section>
   </div>
+
   <section class="stack g12">
     <span class="lbl">Same engine, other places</span>
     <div class="cards">
-      ${places.map(([t, c]) => `
-        <div class="panel stack g8" style="padding:14px 16px">
-          <span style="font-weight:500;font-size:13.5px">${esc(t)}</span>
-          <span class="mono xs" style="word-break:break-all;color:var(--ink2);line-height:1.5">${esc(c)}</span>
+      ${places.map(p => `
+        <div class="place-card">
+          <div class="place-card-head">
+            <div class="place-icon-tile ${p.tileClass}">${p.icon}</div>
+            <span class="place-title">${esc(p.title)}</span>
+          </div>
+          <div class="place-cmd-wrap">
+            <span class="place-cmd-text mono">${esc(p.cmd)}</span>
+            <button class="cmd-copy-btn" data-act="copyCmd" data-v="${esc(p.cmd)}" title="Copy command">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
         </div>
       `).join('')}
     </div>
@@ -338,6 +505,25 @@ Object.assign(ACTIONS, {
       navigate('report');
     } catch (e) { flash(e.message); }
   },
+  toggleRail: () => {
+    const next = !S.rail;
+    store('rail', next);
+    set({ rail: next });
+  },
+  copyCmd: (v, btnEl) => {
+    navigator.clipboard.writeText(v).then(() => {
+      flash('Copied: ' + v);
+      if (btnEl) {
+        btnEl.classList.add('copied');
+        const span = btnEl.querySelector('span');
+        if (span) span.textContent = 'Copied';
+        setTimeout(() => {
+          btnEl.classList.remove('copied');
+          if (span) span.textContent = 'Copy';
+        }, 1500);
+      }
+    }, () => flash('Copy failed'));
+  },
   scan: runScan,
 });
 
@@ -391,7 +577,7 @@ document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
   const fn = ACTIONS[el.dataset.act];
-  if (fn) { e.preventDefault(); fn(el.dataset.v); }
+  if (fn) { e.preventDefault(); fn(el.dataset.v, el); }
 });
 document.addEventListener('input', e => {
   const key = e.target.dataset && e.target.dataset.bind;
