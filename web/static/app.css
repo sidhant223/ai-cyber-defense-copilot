@@ -906,12 +906,12 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
   gap: 24px; align-items: start;
 }
-.scan-source-panel {
+.scan-source-panel.scan-source-switching {
   animation: panelSwitch var(--dur-base) var(--ease-out) both;
 }
 @keyframes panelSwitch {
-  from { opacity: 0; transform: translateY(var(--motion-drift)); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .samples {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -920,17 +920,18 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .sample {
   display: flex; flex-direction: column; gap: 8px; padding: 14px 16px;
   border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line);
-  transition: border-color var(--dur-base) var(--ease-out), background-color var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
   cursor: pointer; text-align: left;
+  transform: none !important;
 }
 .sample:hover {
   border-color: var(--line2);
-  transform: translateY(-2px);
+  transform: none !important;
 }
 .sample.on {
   border-color: var(--ink);
   box-shadow: 0 0 0 1px var(--ink);
-  transform: none;
+  transform: none !important;
 }
 /* Only animate entrance when the screen is entering */
 .page.screen-entering .samples .sample {
@@ -938,8 +939,8 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   animation-delay: calc(var(--s-i, 0) * 45ms);
 }
 @keyframes sampleCardEnter {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .sample-name { font-weight: 500; font-size: 13px; word-break: break-all; }
 .bar { height: 4px; background: var(--sunk); border-radius: 2px; overflow: hidden; }

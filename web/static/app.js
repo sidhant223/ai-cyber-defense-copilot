@@ -183,6 +183,7 @@ function cliFor(r) {
 }
 
 let lastRenderedStateKey = null;
+let lastRenderedSource = null;
 
 function render() {
   document.documentElement.dataset.theme = S.theme;
@@ -449,6 +450,9 @@ SCREENS.scan = () => {
     </div>`;
   }
 
+  const isSourceChange = S.source !== lastRenderedSource;
+  lastRenderedSource = S.source;
+
   let left = '';
   if (S.source === 'sample') {
     left = `<p class="mute" style="font-size:13px;margin-bottom:var(--s-12)">Eight labelled samples with known ground truth. <span class="mono">fastapi-secure-tasks</span> and <span class="mono">express-secure-notes</span> are the negative controls.</p>
@@ -481,20 +485,6 @@ SCREENS.scan = () => {
   const cli = `copilot scan ${where}` + (S.scope.length ? ` --category ${S.scope.join(',')}` : '') + (S.useConfig ? '' : ' --no-config');
   const ready = S.source === 'sample' || (S.source === 'folder' && S.path.trim()) || (S.source === 'zip' && S.zip);
 
-  const scanBanner = S.scanning ? `
-    <div class="scan-banner stack g8" role="status" aria-live="polite">
-      <div class="between" style="align-items:baseline">
-        <span style="font-size:16px;font-weight:500">Scanning repository…</span>
-        <span class="mono xs mute">${esc(where)}</span>
-      </div>
-      <div class="bar"><i style="width:70%"></i></div>
-      <div class="between mono xs mute">
-        <span>[1/3] indexing framework & routes</span>
-        <span>[2/3] evaluating absent controls</span>
-        <span>[3/3] computing posture score</span>
-      </div>
-    </div>` : '';
-
   return `<div class="page w1100">
   <div class="between" style="align-items:baseline">
     <h1 style="font-size:28px;font-weight:500;margin:0">Scan a Repository</h1>
@@ -502,9 +492,8 @@ SCREENS.scan = () => {
   </div>
   <div class="scangrid">
     <div class="stack g20" style="min-width:0">
-      ${scanBanner}
       ${tabs([['sample', 'Corpus sample'], ['folder', 'Local folder'], ['zip', 'Upload a .zip']], S.source, 'source')}
-      <div class="stack g16 scan-source-panel" key="${S.source}">${left}</div>
+      <div class="stack g16 scan-source-panel ${isSourceChange ? 'scan-source-switching' : ''}" key="${S.source}">${left}</div>
       ${S.error ? `<div class="error"><b>Scan failed.</b> ${esc(S.error)}${S.report ? ` The previous report (${esc(S.report.source)}) is kept.` : ''}</div>` : ''}
     </div>
     <div class="panel sticky stack g20">
