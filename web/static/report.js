@@ -341,7 +341,7 @@ function scoreSection(r) {
       </div>
     </div>
 
-    ${chips(r)}
+    ${chips(r, true)}
     ${notice}
   </section>`;
 }
@@ -548,15 +548,18 @@ Object.assign(ACTIONS, {
 });
 
 let lastAnimatedReportId = null;
-function animateScoreCountUp() {
+function animateScoreCountUp(isScreenChange = false) {
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const el = document.getElementById('report-score-num');
   if (!el || !S.report) return;
-  if (lastAnimatedReportId === S.report.id) return;
+  if (!isScreenChange && lastAnimatedReportId === S.report.id) {
+    el.textContent = String(S.report.summary.posture_score);
+    return;
+  }
   lastAnimatedReportId = S.report.id;
   const target = S.report.summary.posture_score;
-  if (typeof target !== 'number' || target <= 0) return;
-  const duration = 750;
+  if (typeof target !== 'number' || target < 0) return;
+  const duration = 950;
   const start = performance.now();
   el.textContent = '0';
   function frame(now) {

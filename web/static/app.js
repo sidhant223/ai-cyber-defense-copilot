@@ -182,21 +182,38 @@ function cliFor(r) {
   return `copilot scan ${r.source}` + (s.scope === 'partial' ? ` --category ${s.categories_scanned.join(',')}` : '');
 }
 
+let lastRenderedStateKey = null;
+
 function render() {
   document.documentElement.dataset.theme = S.theme;
   const focus = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.bind;
   const caret = focus ? document.activeElement.selectionStart : null;
+
+  const currentScreenKey = S.screen + (S.scanning ? ':scanning' : '') + (S.screen === 'report' && S.report ? `:${S.report.id}` : '');
+  const isScreenChange = currentScreenKey !== lastRenderedStateKey;
+  lastRenderedStateKey = currentScreenKey;
+
   const body = (SCREENS[S.screen] || SCREENS.home)();
   const app = document.getElementById('app');
   app.className = 'shell ' + (S.menu ? 'menu-open' : 'menu-closed') + (S.rail ? ' rail' : '');
   app.innerHTML = sidebar() + (S.menu && isNarrow() ? '<div class="scrim" data-act="menu"></div>' : '') +
     `<main>${topbar()}${body}</main>` + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : '');
+
+  const pageEl = app.querySelector('.page');
+  if (pageEl) {
+    if (isScreenChange) {
+      pageEl.classList.add('screen-entering');
+    } else {
+      pageEl.classList.remove('screen-entering');
+    }
+  }
+
   if (focus) {   // keep typing position across re-renders
     const el = document.querySelector(`[data-bind="${focus}"]`);
     if (el) { el.focus(); if (caret !== null && el.setSelectionRange) el.setSelectionRange(caret, caret); }
   }
   if (S.screen === 'report' && window.animateScoreCountUp) {
-    window.animateScoreCountUp();
+    window.animateScoreCountUp(isScreenChange);
   }
 }
 
@@ -361,7 +378,7 @@ SCREENS.home = () => {
   </section></div>`;
 };
 
-function chips(r) {
+function chips(r, isReport = false) {
   const c = r.summary.by_status, sev = r.summary.gaps_by_severity;
   const out = [
     [c.absent + ' absent', 'absent'],
@@ -370,12 +387,68 @@ function chips(r) {
     [c.not_applicable + ' n/a', 'na']
   ].concat(['critical', 'high', 'medium', 'low'].filter(k => sev[k]).map(k => [plural(sev[k], k + ' gap'), k]));
   if (r.summary.controls_suppressed) out.push([r.summary.controls_suppressed + ' accepted', 'accepted']);
-  return `<div class="row g8">${out.map(([l, cls]) => `<span class="chip ${cls}">${esc(l)}</span>`).join('')}</div>`;
+  return `<div class="row g8 ${isReport ? 'report-chips' : ''}">${out.map(([l, cls], i) => `<span class="chip ${cls}" style="--i:${i}">${esc(l)}</span>`).join('')}</div>`;
 }
 
 // ---------------------------------------------------------------- Scan
 SCREENS.scan = () => {
   const m = S.meta;
+  if (S.scanning) {
+    const where = S.source === 'sample' ? `corpus/samples/${S.sample}` : S.source === 'folder' ? (S.path ? `"${S.path}"` : '<path>') : (S.zip ? S.zip.name : '<zip>');
+    const sampleObj = S.source === 'sample' && m ? m.samples.find(s => s.name === S.sample) : null;
+    const desc = sampleObj ? `${sampleObj.framework || 'Python/JS'} · ${sampleObj.language} · ${sampleObj.kind}` : 'Analyzing repository structure';
+
+    return `<div class="page w880 scanning-screen">
+      <div class="panel scanning-view stack g24">
+        <div class="stack g8">
+          <div class="row g8" style="align-items:center">
+            <span class="scan-live-dot"></span>
+            <span class="lbl mono" style="color:var(--ink);letter-spacing:0.05em">SCANNING IN PROGRESS</span>
+          </div>
+          <h2 style="font-size:24px;font-weight:500;margin:0">Evaluating repository security posture</h2>
+          <div class="row g8 mono xs mute" style="align-items:center">
+            <span class="ink">${esc(where)}</span>
+            <span>·</span>
+            <span>${esc(desc)}</span>
+          </div>
+        </div>
+
+        <div class="scan-progress-box stack g12">
+          <div class="between" style="align-items:baseline">
+            <span class="mono xs" style="color:var(--ink);font-weight:500">Static AST & Control Evaluation</span>
+            <span class="mono xs mute scan-progress-percent">28 controls</span>
+          </div>
+          <div class="scan-progress-track">
+            <div class="scan-progress-bar"></div>
+          </div>
+        </div>
+
+        <div class="scan-stages-list stack g12">
+          <div class="scan-stage-item stage-1">
+            <span class="stage-num mono xs">[1/3]</span>
+            <span class="stage-label">Indexing AST, routing tables, and security dependencies</span>
+            <span class="stage-status mono xs">active</span>
+          </div>
+          <div class="scan-stage-item stage-2">
+            <span class="stage-num mono xs">[2/3]</span>
+            <span class="stage-label">Evaluating 28 negative controls across OWASP Top 10 categories</span>
+            <span class="stage-status mono xs">pending</span>
+          </div>
+          <div class="scan-stage-item stage-3">
+            <span class="stage-num mono xs">[3/3]</span>
+            <span class="stage-label">Computing posture score, severity weights, and remediation diffs</span>
+            <span class="stage-status mono xs">pending</span>
+          </div>
+        </div>
+
+        <div class="row between" style="border-top:1px solid var(--line);padding-top:16px;align-items:center">
+          <span class="mono xs mute">Engine: AST / regex patterns · runs 100% offline</span>
+          <span class="xs mute">Moving to posture report…</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
   let left = '';
   if (S.source === 'sample') {
     left = `<p class="mute" style="font-size:13px;margin-bottom:var(--s-12)">Eight labelled samples with known ground truth. <span class="mono">fastapi-secure-tasks</span> and <span class="mono">express-secure-notes</span> are the negative controls.</p>
@@ -549,7 +622,7 @@ Object.assign(ACTIONS, {
 async function runScan() {
   if (S.scanning) return;
   set({ scanning: true, error: null });
-  const minDelay = new Promise(resolve => setTimeout(resolve, 500));
+  const minDelay = new Promise(resolve => setTimeout(resolve, 1150));
   try {
     const targetSource = S.source === 'sample' ? S.sample : S.source === 'folder' ? S.path : (S.zip ? S.zip.name : '');
     const prev = S.history.find(h => h.source === targetSource || (targetSource && h.source.endsWith(targetSource)));

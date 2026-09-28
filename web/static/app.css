@@ -294,10 +294,14 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   padding: var(--s-32) var(--s-32) var(--s-64);
   max-width: 1140px; width: 100%;
   display: flex; flex-direction: column; gap: var(--s-24);
-  animation: pageEnter var(--dur-slow) var(--ease-out) both;
 }
 .w880 { max-width: 880px; }
 .w1100, .w1140, .w1180, .w1240, .w1360 { max-width: 1140px; }
+
+/* Screen Entry Transition: only runs on route / screen changes */
+.page.screen-entering {
+  animation: pageEnter 400ms var(--ease-out) both;
+}
 
 @keyframes pageEnter {
   from {
@@ -310,13 +314,13 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   }
 }
 
-/* Stagger direct child sections (capped at 6 items, 35ms delay) */
-.page > *:not(.hero-wrap):nth-child(1) { animation: childEnter var(--dur-slow) var(--ease-out) both 0ms; }
-.page > *:not(.hero-wrap):nth-child(2) { animation: childEnter var(--dur-slow) var(--ease-out) both 35ms; }
-.page > *:not(.hero-wrap):nth-child(3) { animation: childEnter var(--dur-slow) var(--ease-out) both 70ms; }
-.page > *:not(.hero-wrap):nth-child(4) { animation: childEnter var(--dur-slow) var(--ease-out) both 105ms; }
-.page > *:not(.hero-wrap):nth-child(5) { animation: childEnter var(--dur-slow) var(--ease-out) both 140ms; }
-.page > *:not(.hero-wrap):nth-child(6) { animation: childEnter var(--dur-slow) var(--ease-out) both 175ms; }
+/* Stagger direct child sections (capped at 6 items, 40ms delay) only on screen change */
+.page.screen-entering > *:not(.hero-wrap):nth-child(1) { animation: childEnter 400ms var(--ease-out) both 0ms; }
+.page.screen-entering > *:not(.hero-wrap):nth-child(2) { animation: childEnter 400ms var(--ease-out) both 40ms; }
+.page.screen-entering > *:not(.hero-wrap):nth-child(3) { animation: childEnter 400ms var(--ease-out) both 80ms; }
+.page.screen-entering > *:not(.hero-wrap):nth-child(4) { animation: childEnter 400ms var(--ease-out) both 120ms; }
+.page.screen-entering > *:not(.hero-wrap):nth-child(5) { animation: childEnter 400ms var(--ease-out) both 160ms; }
+.page.screen-entering > *:not(.hero-wrap):nth-child(6) { animation: childEnter 400ms var(--ease-out) both 200ms; }
 
 @keyframes childEnter {
   from {
@@ -928,9 +932,10 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   box-shadow: 0 0 0 1px var(--ink);
   transform: none;
 }
-.samples .sample {
-  animation: sampleCardEnter var(--dur-slow) var(--ease-out) both;
-  animation-delay: calc(var(--s-i, 0) * 30ms);
+/* Only animate entrance when the screen is entering */
+.page.screen-entering .samples .sample {
+  animation: sampleCardEnter 400ms var(--ease-out) both;
+  animation-delay: calc(var(--s-i, 0) * 45ms);
 }
 @keyframes sampleCardEnter {
   from { opacity: 0; transform: translateY(4px); }
@@ -941,9 +946,9 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .bar.flex { flex: 1; }
 .bar i { display: block; height: 100%; background: var(--ink); }
 .sample .bar { margin-top: 4px; }
-.sample .bar i {
+.page.screen-entering .sample .bar i {
   transform-origin: left;
-  animation: barScaleX var(--dur-slow) var(--ease-out) both;
+  animation: barScaleX 450ms var(--ease-out) both;
 }
 @keyframes barScaleX {
   from { transform: scaleX(0); }
@@ -1017,6 +1022,109 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   to { transform: rotate(360deg); }
 }
 
+/* Dedicated Scanning Forward Screen */
+.scanning-screen {
+  animation: pageEnter 350ms var(--ease-out) both;
+}
+.scanning-view {
+  margin-top: var(--s-16);
+  padding: 32px;
+}
+.scan-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--absent);
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+  animation: livePulse 1.6s ease infinite;
+}
+@keyframes livePulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+.scan-progress-box {
+  background: var(--sunk);
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+.scan-progress-track {
+  height: 6px;
+  background: var(--line2);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.scan-progress-bar {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 3px;
+  width: 100%;
+  transform-origin: left;
+  animation: scanRunBar 1150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes scanRunBar {
+  0% { transform: scaleX(0.04); }
+  35% { transform: scaleX(0.45); }
+  70% { transform: scaleX(0.85); }
+  100% { transform: scaleX(1); }
+}
+.scan-stages-list {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  overflow: hidden;
+}
+.scan-stage-item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 60px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.scan-stage-item:last-child {
+  border-bottom: 0;
+}
+.scan-stage-item .stage-num {
+  color: var(--mute);
+}
+.scan-stage-item .stage-label {
+  color: var(--ink);
+}
+.scan-stage-item .stage-status {
+  text-align: right;
+  font-size: 11px;
+}
+.scan-stage-item.stage-1 .stage-status {
+  color: var(--present);
+  animation: stage1Status 1150ms steps(1) forwards;
+}
+@keyframes stage1Status {
+  0% { color: var(--partial); }
+  35% { color: var(--present); }
+}
+.scan-stage-item.stage-2 .stage-status {
+  color: var(--mute);
+  animation: stage2Status 1150ms steps(1) forwards;
+}
+@keyframes stage2Status {
+  0% { color: var(--mute); }
+  35% { color: var(--partial); }
+  75% { color: var(--present); }
+}
+.scan-stage-item.stage-3 .stage-status {
+  color: var(--mute);
+  animation: stage3Status 1150ms steps(1) forwards;
+}
+@keyframes stage3Status {
+  0% { color: var(--mute); }
+  70% { color: var(--partial); }
+  92% { color: var(--present); }
+}
+
 /* ==========================================================================
    Report Screen
    ========================================================================== */
@@ -1034,7 +1142,10 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 }
 .score-grade { font-size: 20px; font-weight: 500; color: var(--mute); }
 .report-grade-fade {
-  animation: gradeFadeIn var(--dur-base) var(--ease-out) 750ms both;
+  opacity: 1;
+}
+.page.screen-entering .report-grade-fade {
+  animation: gradeFadeIn var(--dur-base) var(--ease-out) 950ms both;
 }
 @keyframes gradeFadeIn {
   from { opacity: 0; transform: translateY(4px); }
@@ -1073,13 +1184,20 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .weights button.on { outline: 2px solid var(--ink); outline-offset: -1px; z-index: 2; }
 .weights .report-seg {
   transform-origin: bottom;
+  opacity: 1;
+  transform: scaleY(1);
+}
+.page.screen-entering .weights .report-seg {
   opacity: 0;
   transform: scaleY(0.3);
-  animation: segFillIn 300ms var(--ease-out) forwards;
-  animation-delay: calc(var(--i, 0) * 18ms);
+  animation: segFillIn 450ms var(--ease-out) forwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
 }
 .report-caption {
-  animation: captionFadeIn var(--dur-base) var(--ease-out) 550ms both;
+  opacity: 1;
+}
+.page.screen-entering .report-caption {
+  animation: captionFadeIn var(--dur-base) var(--ease-out) 850ms both;
 }
 @keyframes captionFadeIn {
   from { opacity: 0; transform: translateY(4px); }
@@ -1088,9 +1206,12 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 /* Summary chips stagger in Report */
 .report-chips .chip {
+  opacity: 1;
+}
+.page.screen-entering .report-chips .chip {
   opacity: 0;
   animation: chipFadeIn var(--dur-base) var(--ease-out) forwards;
-  animation-delay: calc(560ms + var(--i, 0) * 30ms);
+  animation-delay: calc(880ms + var(--i, 0) * 40ms);
 }
 @keyframes chipFadeIn {
   from { opacity: 0; transform: translateY(4px); }
@@ -1130,6 +1251,8 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .category-block {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: var(--radius); overflow: hidden; margin-bottom: 16px;
+}
+.page.screen-entering .category-block {
   animation: catEnter var(--dur-base) var(--ease-out) both;
 }
 @keyframes catEnter {
@@ -1158,9 +1281,12 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   background: var(--sunk); border-left-color: var(--ink); font-weight: 500;
 }
 .control-row.stagger-in {
+  opacity: 1;
+}
+.page.screen-entering .control-row.stagger-in {
   opacity: 0;
-  animation: rowFadeIn var(--dur-base) var(--ease-out) forwards;
-  animation-delay: calc(var(--r-i, 0) * 15ms);
+  animation: rowFadeIn 320ms var(--ease-out) forwards;
+  animation-delay: calc(var(--r-i, 0) * 35ms);
 }
 @keyframes rowFadeIn {
   from { opacity: 0; transform: translateY(4px); }
@@ -1374,6 +1500,9 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .ln.hit,
   .page,
   .scan-source-panel,
+  .scan-progress-bar,
+  .scan-live-dot,
+  .scan-stage-item .stage-status,
   .detail-panel,
   .collapsible-wrap,
   .table .trow,
