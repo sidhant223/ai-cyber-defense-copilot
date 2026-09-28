@@ -290,10 +290,10 @@ function scoreSection(r) {
     <div class="between" style="align-items:flex-start;gap:24px">
       <div class="stack g8">
         <div class="score-row">
-          <span class="score-num" style="color:${scoreColor(s.posture_score)}">${s.posture_score}</span>
+          <span id="report-score-num" class="score-num" style="color:${scoreColor(s.posture_score)}">${s.posture_score}</span>
           <div class="stack g4" style="padding-bottom:12px">
             <div class="row g8" style="align-items:center">
-              <span class="score-grade">${gradeText(r)}</span>
+              <span id="report-score-grade" class="score-grade report-grade-fade">${gradeText(r)}</span>
               ${trendHtml}
             </div>
             <span class="mute xs">${plural(gapsCount, 'gap')} · ${s.controls_scored} of ${s.controls_evaluated} controls scored</span>
@@ -321,23 +321,25 @@ function scoreSection(r) {
 
     <div class="stack g6">
       <div class="weights">
-        ${segs.map(f => `<button style="flex:${W[f.severity]}" class="${f.status} ${S.sel === f.control_id ? 'on' : ''}" data-act="pick" data-v="${esc(f.control_id)}"
+        ${segs.map((f, i) => `<button style="flex:${W[f.severity]};--i:${i}" class="${f.status} report-seg ${S.sel === f.control_id ? 'on' : ''}" data-act="pick" data-v="${esc(f.control_id)}"
           title="${esc(f.control_id)} · ${f.severity} (weight ${W[f.severity]}) · ${f.status}" aria-label="${esc(f.control_id)} ${f.status}"><i style="width:${CR[f.status] * 100}%;background:${f.status === 'partial' ? 'var(--partial)' : 'var(--present)'}"></i></button>`).join('')}
       </div>
-      <div class="between" style="align-items:baseline">
+      <div class="between report-caption" style="align-items:baseline">
         <span class="mono xs mute">${r.weights.earned.toFixed(1)} earned / ${r.weights.total} weight across ${s.controls_scored} scored controls = ${s.posture_score}</span>
-        <button class="btn-text xs mute" data-act="toggleCalcDetails">${S.showCalcDetails ? '▾ Hide details' : '▸ Calculation details'}</button>
+        <button class="btn-text xs mute" data-act="toggleCalcDetails"><span class="chevron ${S.showCalcDetails ? 'open' : ''}">▸</span> Calculation details</button>
       </div>
     </div>
 
-    ${S.showCalcDetails ? `
-      <div class="code" style="font-size:12px">
-        <div class="between">
-          <span>score = 100 × Σ(weight × credit) / Σ(weight)</span>
-          <span style="font-weight:500">${r.weights.earned.toFixed(1)} earned / ${r.weights.total} total weight = ${s.posture_score}</span>
+    <div class="collapsible-wrap ${S.showCalcDetails ? 'open' : ''}">
+      <div class="collapsible-inner">
+        <div class="code" style="font-size:12px;margin-top:6px">
+          <div class="between">
+            <span>score = 100 × Σ(weight × credit) / Σ(weight)</span>
+            <span style="font-weight:500">${r.weights.earned.toFixed(1)} earned / ${r.weights.total} total weight = ${s.posture_score}</span>
+          </div>
         </div>
       </div>
-    ` : ''}
+    </div>
 
     ${chips(r)}
     ${notice}
@@ -360,11 +362,11 @@ function evidenceHtml(f) {
     if (hide) return `<div class="evbox">${head}</div>`;
     const ext = e.file_path.split('.').pop() || 'py';
     if (e.context && e.context.length) {
-      return `<div class="evbox">${head}<div class="src">${e.context.map(([n, t]) =>
+      return `<div class="evbox">${head}<div class="src secret-text">${e.context.map(([n, t]) =>
         `<div class="ln ${n === e.line_number ? 'hit' : ''}"><span class="n">${n}</span><span class="t">${highlightLine(t, ext)}</span></div>`).join('')}</div>
         <div class="row g16" style="padding:6px 12px;font-size:11.5px;color:var(--mute);border-top:1px solid var(--line)"><span>matched line · ${e.context.length} lines of context</span></div></div>`;
     }
-    return `<div class="evbox">${head}${e.snippet ? `<div class="src"><div class="ln hit"><span class="n">${e.line_number || ''}</span><span class="t">${highlightLine(e.snippet, ext)}</span></div></div>` : ''}</div>`;
+    return `<div class="evbox">${head}${e.snippet ? `<div class="src secret-text"><div class="ln hit"><span class="n">${e.line_number || ''}</span><span class="t">${highlightLine(e.snippet, ext)}</span></div></div>` : ''}</div>`;
   }).join('');
 }
 
@@ -380,7 +382,7 @@ function detailHtml(f, r) {
     <div class="diff-body">${diff.lines.map(l => `<div class="diff-ln ${l.type}"><span class="sign">${l.type === 'add' ? '+' : l.type === 'del' ? '−' : ' '}</span><span class="text">${highlightLine(l.text, ext)}</span></div>`).join('')}</div>
   </div>` : '';
 
-  return `<article class="detail-panel sticky">
+  return `<article class="detail-panel sticky" key="${esc(f.control_id)}">
     <div class="row g12" style="align-items:center">
       <span class="chip ${f.status}">${f.suppressed ? 'ACCEPTED' : (SL[f.status] || f.status.toUpperCase())}</span>
       <span class="mono xs mute">${esc(f.control_id)}</span>
@@ -487,7 +489,7 @@ SCREENS.report = () => {
         ${check(S.reveal, 'reveal', 'Reveal secrets')}
         ${isFiltered ? `<button class="btn-text xs mute" data-act="clearFilters">Clear filters</button>` : ''}
       </div>
-      <span class="mono xs mute">Showing ${shown.length} of ${r.findings.length} · <span class="kbd">j</span>/<span class="kbd">k</span></span>
+      <span class="mono xs mute">Showing <span class="count-roll">${shown.length}</span> of ${r.findings.length} · <span class="kbd">j</span>/<span class="kbd">k</span></span>
     </div>
   </div>
 
@@ -501,8 +503,8 @@ SCREENS.report = () => {
             <span class="count mono">${plural(g.gaps, 'gap')} · ${plural(g.all.length, 'control')}</span>
           </div>
           <div class="stack">
-            ${g.rows.map(f => `
-              <button class="control-row ${f.control_id === selId ? 'on' : ''}" data-act="pick" data-v="${esc(f.control_id)}" aria-pressed="${f.control_id === selId}">
+            ${g.rows.map((f, rIdx) => `
+              <button class="control-row stagger-in ${f.control_id === selId ? 'on' : ''}" style="--r-i:${Math.min(rIdx, 15)}" data-act="pick" data-v="${esc(f.control_id)}" aria-pressed="${f.control_id === selId}">
                 <span class="status-dot ${f.status}"></span>
                 <span class="id">${esc(f.control_id)}</span>
                 <span class="name">${esc(f.control_name)}</span>
@@ -544,4 +546,32 @@ Object.assign(ACTIONS, {
     navigator.clipboard.writeText(txt).then(() => flash('Remediation diff copied to clipboard'), () => flash('Copy failed; select text instead'));
   },
 });
+
+let lastAnimatedReportId = null;
+function animateScoreCountUp() {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const el = document.getElementById('report-score-num');
+  if (!el || !S.report) return;
+  if (lastAnimatedReportId === S.report.id) return;
+  lastAnimatedReportId = S.report.id;
+  const target = S.report.summary.posture_score;
+  if (typeof target !== 'number' || target <= 0) return;
+  const duration = 750;
+  const start = performance.now();
+  el.textContent = '0';
+  function frame(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(eased * target);
+    el.textContent = String(current);
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      el.textContent = String(target);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+window.animateScoreCountUp = animateScoreCountUp;
 

@@ -135,12 +135,6 @@ function sidebar() {
         <span>v${esc(m ? m.version : '0.1.0')} · ${m ? m.controls : '28'} controls</span>
       </div>
     </button>
-    <button class="rail-toggle" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}" title="${S.rail ? 'Expand sidebar' : 'Collapse to rail'}">
-      ${S.rail ?
-        '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M14 10l2 2-2 2"/></svg>' :
-        '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M16 10l-2 2 2 2"/></svg>'
-      }
-    </button>
   </div>
   <nav aria-label="Screens">${nav.map(([k, l, b, h]) => `${h ? `<div class="navhead">${h}</div>` : ''}
     <button class="navbtn ${S.screen === k ? 'on' : ''}" data-act="go" data-v="${k}" ${S.screen === k ? 'aria-current="page"' : ''} title="${l}">
@@ -169,7 +163,7 @@ function sidebar() {
 function topbar() {
   const r = S.report;
   const dl = S.screen === 'report' && r ? `<div class="dl">${[['html', 'HTML'], ['json', 'JSON'], ['sarif', 'SARIF'], ['md', 'Markdown']]
-    .map(([f, l]) => `<a href="/api/export/${esc(r.id)}?format=${f}" download>${l}</a>`).join('')}</div>` : '';
+    .map(([f, l]) => `<a href="/api/export/${esc(r.id)}?format=${f}" download data-act="downloadExport" data-label="${l}">${l}</a>`).join('')}</div>` : '';
   const themes = `<div class="theme-toggle" role="group" aria-label="Theme">
     <button class="${S.theme === 'light' ? 'on' : ''}" data-act="theme" data-v="light">Light</button>
     <span class="mute">/</span>
@@ -200,6 +194,9 @@ function render() {
   if (focus) {   // keep typing position across re-renders
     const el = document.querySelector(`[data-bind="${focus}"]`);
     if (el) { el.focus(); if (caret !== null && el.setSelectionRange) el.setSelectionRange(caret, caret); }
+  }
+  if (S.screen === 'report' && window.animateScoreCountUp) {
+    window.animateScoreCountUp();
   }
 }
 
@@ -382,8 +379,8 @@ SCREENS.scan = () => {
   let left = '';
   if (S.source === 'sample') {
     left = `<p class="mute" style="font-size:13px;margin-bottom:var(--s-12)">Eight labelled samples with known ground truth. <span class="mono">fastapi-secure-tasks</span> and <span class="mono">express-secure-notes</span> are the negative controls.</p>
-    <div class="samples">${(m ? m.samples : []).map(s => `
-      <button class="sample ${s.name === S.sample ? 'on' : ''}" data-act="sample" data-v="${esc(s.name)}" aria-pressed="${s.name === S.sample}">
+    <div class="samples">${(m ? m.samples : []).map((s, i) => `
+      <button class="sample ${s.name === S.sample ? 'on' : ''}" style="--s-i:${i}" data-act="sample" data-v="${esc(s.name)}" aria-pressed="${s.name === S.sample}">
         <div class="between" style="align-items:flex-start">
           <span class="mono sample-name">${esc(s.name)}</span>
           <span class="mono" style="font-weight:500;font-size:12.5px;color:${scoreColor(s.score)}">${s.score} ${esc(s.grade || '—')}</span>
@@ -434,7 +431,7 @@ SCREENS.scan = () => {
     <div class="stack g20" style="min-width:0">
       ${scanBanner}
       ${tabs([['sample', 'Corpus sample'], ['folder', 'Local folder'], ['zip', 'Upload a .zip']], S.source, 'source')}
-      <div class="stack g16">${left}</div>
+      <div class="stack g16 scan-source-panel" key="${S.source}">${left}</div>
       ${S.error ? `<div class="error"><b>Scan failed.</b> ${esc(S.error)}${S.report ? ` The previous report (${esc(S.report.source)}) is kept.` : ''}</div>` : ''}
     </div>
     <div class="panel sticky stack g20">
@@ -446,11 +443,11 @@ SCREENS.scan = () => {
       </div>
       <div class="stack g8">
         <span class="lbl">Display · never moves the score</span>
-        ${tabs([['all', 'All'], ['critical', 'Critical'], ['high', 'High+'], ['medium', 'Medium+'], ['low', 'Low+']], S.minSev, 'minSev')}
+        ${tabs([['all', 'All'], ['critical', 'Critical'], ['high', 'High+'], ['medium', 'Medium+']], S.minSev, 'minSev')}
         ${check(S.showSat, 'showSat', 'Show satisfied controls')}
       </div>
-      <div class="code">$ ${esc(cli)}</div>
-      <div><button class="btn primary" data-act="scan" ${ready && !S.scanning ? '' : 'disabled'}>${S.scanning ? 'Scanning…' : 'Scan repository'}</button></div>
+      <div class="code scan-cli-fade" key="${where}">$ ${esc(cli)}</div>
+      <div><button class="btn primary btn-scan ${S.scanning ? 'running' : ''}" data-act="scan" ${ready && !S.scanning ? '' : 'disabled'} aria-busy="${S.scanning ? 'true' : 'false'}">${S.scanning ? '<span class="scan-spinner" aria-hidden="true"></span> Scanning…' : 'Scan repository'}</button></div>
     </div>
   </div></div>`;
 };
@@ -536,6 +533,16 @@ Object.assign(ACTIONS, {
       }
     }, () => flash('Copy failed'));
   },
+  downloadExport: (v, el) => {
+    if (!el) return;
+    const orig = el.dataset.label || el.textContent;
+    el.classList.add('downloaded');
+    el.textContent = 'Downloaded';
+    setTimeout(() => {
+      el.classList.remove('downloaded');
+      el.textContent = orig;
+    }, 1500);
+  },
   scan: runScan,
 });
 
@@ -589,7 +596,10 @@ document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
   const fn = ACTIONS[el.dataset.act];
-  if (fn) { e.preventDefault(); fn(el.dataset.v, el); }
+  if (fn) {
+    if (el.tagName !== 'A' || !el.hasAttribute('download')) e.preventDefault();
+    fn(el.dataset.v, el);
+  }
 });
 document.addEventListener('input', e => {
   const key = e.target.dataset && e.target.dataset.bind;
