@@ -201,3 +201,49 @@ AUTH-010:
         @app.route("/notes")
         def notes():
             return []
+
+AUTH-011:
+  - name: token from the secrets module
+    expect: present
+    files:
+      auth.py: |
+        import secrets
+        from datetime import datetime, timedelta
+        reset_token = secrets.token_urlsafe(32)
+        token_expires = datetime.now() + timedelta(hours=1)
+
+  - name: session token hashed from the username and the clock
+    expect: absent
+    files:
+      main.py: |
+        import hashlib
+        from datetime import datetime
+        token = hashlib.sha256(f"{username}{datetime.now()}".encode()).hexdigest()
+
+  - name: reset code from Math.random
+    expect: absent
+    files:
+      reset.js: |
+        const resetCode = Math.floor(Math.random() * 1000000);
+
+AUTH-012:
+  - name: verified with a key and an algorithm list
+    expect: present
+    files:
+      auth.py: |
+        import jwt
+        claims = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+
+  - name: node decode without verify
+    expect: absent
+    files:
+      auth.js: |
+        const jwt = require('jsonwebtoken');
+        const claims = jwt.decode(token);
+
+  - name: signature check switched off
+    expect: absent
+    files:
+      auth.py: |
+        import jwt
+        claims = jwt.decode(token, options={"verify_signature": False})

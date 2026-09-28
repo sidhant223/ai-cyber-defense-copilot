@@ -68,6 +68,13 @@ samples:
       INJ-003: not_applicable # no outbound request built from request input
       INJ-004: not_applicable # no local file path built from request input
       INJ-005: present        # no raw-HTML sink
+      AUTH-011: present        # no token from random, Math.random or the clock
+      AUTH-012: present        # no unverified JWT decode
+      INPUT-005: present        # no request body copied wholesale into a record
+      WEB-006: absent         # no X-Frame-Options or frame-ancestors
+      INJ-006: present        # no XML parsing
+      INJ-007: present        # no template compiled from request input
+      INJ-008: present        # no regex built from request input
       WEB-001: absent         # no CSP anywhere
       WEB-002: absent         # no HSTS
       LOG-001: absent         # no logger configured
@@ -120,6 +127,13 @@ samples:
       INJ-003: not_applicable # no outbound request built from request input
       INJ-004: not_applicable # no local file path built from request input
       INJ-005: present        # no raw-HTML sink
+      AUTH-011: present        # no token from random, Math.random or the clock
+      AUTH-012: present        # jwt.verify with the secret (routes/todos.js:13)
+      INPUT-005: present        # no request body copied wholesale into a record
+      WEB-006: absent         # no X-Frame-Options or frame-ancestors
+      INJ-006: present        # no XML parsing
+      INJ-007: present        # no template compiled from request input
+      INJ-008: present        # no regex built from request input
       WEB-001: absent         # no helmet, no CSP
       WEB-002: absent         # no HSTS
       LOG-001: absent         # console only, no logger
@@ -173,6 +187,13 @@ samples:
       INJ-003: not_applicable # no outbound request built from request input
       INJ-004: not_applicable # no local file path built from request input
       INJ-005: present        # no raw-HTML sink
+      AUTH-011: absent         # token = sha256(username + datetime.now()) is predictable (main.py:63)
+      AUTH-012: present        # no unverified JWT decode
+      INPUT-005: present        # no request body copied wholesale into a record
+      WEB-006: absent         # no X-Frame-Options or frame-ancestors
+      INJ-006: present        # no XML parsing
+      INJ-007: present        # no template compiled from request input
+      INJ-008: present        # no regex built from request input
       WEB-001: absent         # no CSP
       WEB-002: absent         # no HSTS
       LOG-001: absent         # no logger configured
@@ -225,6 +246,13 @@ samples:
       INJ-003: not_applicable # no outbound request built from request input
       INJ-004: not_applicable # uploads go to S3 under generated keys; no local path
       INJ-005: present        # no raw-HTML sink
+      AUTH-011: present        # no token from random, Math.random or the clock
+      AUTH-012: present        # no unverified JWT decode
+      INPUT-005: present        # no request body copied wholesale into a record
+      WEB-006: absent         # no X-Frame-Options or frame-ancestors
+      INJ-006: present        # no XML parsing
+      INJ-007: present        # no template compiled from request input
+      INJ-008: present        # no regex built from request input
       WEB-001: absent         # no CSP
       WEB-002: absent         # no HSTS
       LOG-001: absent         # no logger configured
@@ -278,6 +306,13 @@ samples:
       INJ-003: not_applicable # no outbound request built from request input
       INJ-004: not_applicable # no local file path built from request input
       INJ-005: present        # no raw-HTML sink
+      AUTH-011: present        # no token from random, Math.random or the clock
+      AUTH-012: present        # no unverified JWT decode
+      INPUT-005: present        # no request body copied wholesale into a record
+      WEB-006: absent         # no X-Frame-Options or frame-ancestors
+      INJ-006: present        # no XML parsing
+      INJ-007: present        # no template compiled from request input
+      INJ-008: present        # no regex built from request input
       WEB-001: absent         # no helmet, no CSP
       WEB-002: absent         # no HSTS
       LOG-001: absent         # console.log on listen only
@@ -336,6 +371,13 @@ samples:
       INJ-003: not_applicable # no outbound request built from request input
       INJ-004: not_applicable # no local file path built from request input
       INJ-005: present        # no raw-HTML sink
+      AUTH-011: present        # no token from random, Math.random or the clock
+      AUTH-012: present        # no unverified JWT decode
+      INPUT-005: present        # objects.create names each field
+      WEB-006: absent         # XFrameOptionsMiddleware missing from MIDDLEWARE
+      INJ-006: present        # no XML parsing
+      INJ-007: present        # no template compiled from request input
+      INJ-008: present        # no regex built from request input
       WEB-001: absent         # no django-csp settings
       WEB-002: absent         # SECURE_HSTS_SECONDS not set
       LOG-001: absent         # no LOGGING dict
@@ -389,6 +431,13 @@ samples:
       INJ-003: not_applicable # no outbound request built from request input
       INJ-004: not_applicable # no local file path built from request input
       INJ-005: present        # no raw-HTML sink
+      AUTH-011: present        # no token from random, Math.random or the clock
+      AUTH-012: present        # jwt.decode with key and algorithms=[ALGORITHM] (auth.py:57)
+      INPUT-005: present        # no request body copied wholesale into a record
+      WEB-006: present        # X-Frame-Options: DENY in security_headers
+      INJ-006: present        # no XML parsing
+      INJ-007: present        # no template compiled from request input
+      INJ-008: present        # no regex built from request input
       WEB-001: present        # header set in security_headers middleware
       WEB-002: present        # header set in security_headers middleware
       LOG-001: present        # logging.basicConfig at startup
@@ -441,6 +490,13 @@ samples:
       INJ-003: not_applicable # no outbound request built from request input
       INJ-004: not_applicable # no local file path built from request input
       INJ-005: present        # no raw-HTML sink
+      AUTH-011: present        # no token from random, Math.random or the clock
+      AUTH-012: present        # no unverified JWT decode
+      INPUT-005: present        # no request body copied wholesale into a record
+      WEB-006: present        # helmet() sets X-Frame-Options
+      INJ-006: present        # no XML parsing
+      INJ-007: present        # no template compiled from request input
+      INJ-008: present        # no regex built from request input
       WEB-001: present        # helmet() defaults include a CSP
       WEB-002: present        # helmet() sends HSTS
       LOG-001: absent         # console.error in the error handler, no logger

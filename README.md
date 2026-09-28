@@ -108,7 +108,7 @@ The same guide is built into the app: open **Guide** in the menu (☰).
    Reports last only until the server stops, so download the ones you keep.
 10. **Fix, then scan again** to see the score move.
 
-A clean report means none of the 43 checks found a gap. It is not proof that
+A clean report means none of the 50 checks found a gap. It is not proof that
 a project is secure.
 
 ## The screens
@@ -120,7 +120,7 @@ a project is secure.
 | **Report** | Score, a weight bar with one segment per control, findings grouped by category, the real source lines behind each finding, remediation, fix prompt, downloads. |
 | **Routes** | Every route handler and whether it has authentication, a credential rate limit and a role check. |
 | **Accepted** | Suppressions in force, and a form that writes a new one and previews its effect on the score. |
-| **Rules** | All 43 controls, each with its YAML definition, verdict mapping and status in the current scan. |
+| **Rules** | All 50 controls, each with its YAML definition, verdict mapping and status in the current scan. |
 | **Evaluation** | *This project:* statistics for the latest scan (and ground truth when it is a labelled sample). *Corpus:* the dev-split evaluation of all eight samples. |
 | **How it works / Guide** | Scoring, limits, and these instructions. |
 
@@ -331,19 +331,19 @@ AUTH-001  partial  critical  4 of 6 HTTP route handler(s) are authenticated; 2 a
 
 ## Controls
 
-Forty-three across eight categories. Full detail, including known
+Fifty across eight categories. Full detail, including known
 limitations, in [docs/controls.md](docs/controls.md).
 
 | Category | Covers |
 |---|---|
-| Authentication | Route-level auth (Flask, FastAPI, Django, Express), CSRF on cookie sessions, session cookie flags, session and token expiry, password storage and strength |
-| Input validation | Body schemas, query parameterisation, upload restrictions, shell execution |
+| Authentication | Route-level auth (Flask, FastAPI, Django, Express), CSRF on cookie sessions, session cookie flags, session and token expiry, password storage and strength, secure-random tokens, JWT signature verification |
+| Input validation | Body schemas, query parameterisation, upload restrictions, shell execution, mass assignment |
 | Rate limiting | Limiter registration, global default, credential endpoints |
 | Secret management | Provider key formats, connection strings, entropy, `.env` handling, env-sourced config |
 | Access control | CORS, debug mode, security headers, admin role checks, host allowlist, exception detail in responses |
-| Web security | Content-Security-Policy, HSTS, open redirects, outbound TLS verification, CSRF switched off |
+| Web security | Content-Security-Policy, HSTS, open redirects, outbound TLS verification, CSRF switched off, clickjacking |
 | Logging & errors | Logger configured, authentication events logged, credentials kept out of logs, central error handler (Express/Koa), swallowed exceptions |
-| Injection | NoSQL operator injection, unsafe deserializers, SSRF, path traversal, raw-HTML (XSS) sinks |
+| Injection | NoSQL operator injection, unsafe deserializers, SSRF, path traversal, raw-HTML (XSS) sinks, XXE, server-side template injection, regex from input (ReDoS) |
 
 Frameworks: Flask, FastAPI, Django, Express, Next.js. Languages: Python,
 JavaScript, TypeScript. Anything else runs the framework-agnostic controls
@@ -475,7 +475,7 @@ prompts asked for security controls.
 **No accuracy figure is claimed yet.** The eight samples are the `dev` split:
 the rules were tuned until they matched them, so their precision and recall
 are circular by construction and serve only as a regression signal
-(currently TP 81 · FP 0 · FN 0 · TN 143). Accuracy will be `copilot evaluate
+(currently TP 114 · FP 0 · FN 0 · TN 286). Accuracy will be `copilot evaluate
 --split holdout`, run on samples labelled before the scanner ever saw them,
 once that split exists.
 
@@ -508,7 +508,7 @@ The tool also scans itself in CI:
 
 ```bash
 copilot scan . --config config/self-scan.copilot.yaml
-# 43 checks · 21 applicable · 0 gaps · score 100 · 6 accepted
+# 50 checks · 27 applicable · 0 gaps · score 100 · 6 accepted
 ```
 
 Six findings on its own source are accepted in that config, with reasons: a

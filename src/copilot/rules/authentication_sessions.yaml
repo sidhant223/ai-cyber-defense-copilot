@@ -176,3 +176,79 @@ controls:
       every handler that accepts a password inherits it. Check the password
       against a breached-password list rather than demanding character
       classes, which is what both NIST and ASVS now recommend.
+
+  - id: AUTH-011
+    name: Security tokens generated with a secure random source
+    severity: high
+    cwe: CWE-330
+    owasp: A02:2021
+    description: >
+      Session ids, reset codes, OTPs and API keys have to be unguessable.
+      Math.random, Python's random module and anything derived from the
+      clock are predictable, so a token built from them can be forged.
+    rationale: >
+      The name on the left of the assignment is what makes a random value a
+      security token, so the subject is the name. Names that describe when
+      a token expires or how long it is are skipped, because a timestamp is
+      the right value for those.
+    applies_to:
+      index_buckets: [source]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        flags: [ignorecase]
+        any_of:
+          - '\b(?!\w*(?:exp|ttl|_at\b|date|issued|created|length|len\b|count))\w*(?:token|secret|otp|nonce|salt|api_?key|session_?id|reset_?code|verification_?code|password)\w*["'']?\s*[:=](?!=)[^\n]*\b(?:Math\.random|random\.(?:random|randint|choice|choices|randrange|getrandbits|sample))\s*\('
+          - '\b(?!\w*(?:exp|ttl|_at\b|date|issued|created|length|len\b|count))\w*(?:token|secret|otp|nonce|api_?key|session_?id|reset_?code|verification_?code)\w*["'']?\s*[:=](?!=)[^\n]*\b(?:datetime\.(?:now|utcnow)|time\.time|Date\.now)\s*\('
+        none_of:
+          - '\bsecrets\.|randomBytes|randomUUID|getRandomValues|token_(?:urlsafe|hex|bytes)|uuid4|SystemRandom'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Generate tokens with a CSPRNG: secrets.token_urlsafe(32) in Python,
+      crypto.randomBytes(32).toString('hex') or crypto.randomUUID() in Node.
+      A token that is a hash of the username and the time can be recomputed
+      by anyone who knows both, so replace it rather than salting it.
+
+  - id: AUTH-012
+    name: JWT signatures are verified
+    severity: critical
+    cwe: CWE-347
+    owasp: A07:2021
+    confidence: high   # each pattern is an explicit off switch or an unverified decode
+    description: >
+      A JWT is only proof of identity if its signature is checked. Decoding
+      without verifying, accepting the "none" algorithm or ignoring expiry
+      lets a client write its own token.
+    applies_to:
+      index_buckets: [source]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bverify_signature["'']?\s*[:=]\s*(?:False|false)\b'
+          - '(?i)\balgorithms?["'']?\s*[:=]\s*\[?\s*["'']none["'']'
+          - '\bignoreExpiration\s*:\s*true\b|\bverify_exp["'']?\s*[:=]\s*(?:False|false)\b'
+          - '\bjwt\.decode\s*\(\s*[\w.\[\]"'']+\s*\)'
+          - '\bget_unverified_claims\s*\('
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Verify every incoming token with jwt.verify (Node) or jwt.decode with
+      the key and an explicit algorithms=[...] list (PyJWT), and never allow
+      "none". Keep expiry checking on; if clocks drift, allow a small leeway
+      instead of switching the check off.

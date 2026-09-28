@@ -20,7 +20,7 @@ const CATS = [['authentication', 'Authentication'], ['input_validation', 'Input 
   ['rate_limiting', 'Rate limiting'], ['secret_management', 'Secret management'], ['access_control', 'Access control'],
   ['web_security', 'Web security'], ['logging_errors', 'Logging & errors'], ['injection', 'Injection']];
 const CATT = Object.fromEntries(CATS);
-const nControls = () => (S.meta ? S.meta.controls : 43);
+const nControls = () => (S.meta ? S.meta.controls : 50);
 const W = { critical: 5, high: 3, medium: 2, low: 1 };
 const CR = { present: 1, partial: 0.5, absent: 0 };
 const SEVR = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -258,8 +258,8 @@ SCREENS.home = () => {
         </button>`).join('')}
     </div>` : '<p class="mute xs" style="padding:16px">Nothing yet. Scans stay here until the server stops; download a report to keep one.</p>';
 
-  const previewSegs = [].concat(Array(17).fill('absent'), Array(2).fill('partial'),
-    Array(13).fill('present'), Array(7).fill('na'));
+  const previewSegs = [].concat(Array(18).fill('absent'), Array(2).fill('partial'),
+    Array(19).fill('present'), Array(7).fill('na'));
 
   const places = [
     {
@@ -310,11 +310,11 @@ SCREENS.home = () => {
             <span class="hero-preview-target">flask-notes-app</span>
           </div>
           <div>
-            <span class="hero-preview-score">53</span>
-            <span class="hero-preview-grade">F</span>
+            <span class="hero-preview-score">60</span>
+            <span class="hero-preview-grade">D</span>
           </div>
         </div>
-        <div class="preview-bar" aria-label="Segmented score bar preview" title="17 absent, 2 partial, 13 present, 7 n/a" style="--n:${previewSegs.length}">
+        <div class="preview-bar" aria-label="Segmented score bar preview" title="18 absent, 2 partial, 19 present, 7 n/a" style="--n:${previewSegs.length}">
           ${previewSegs.map((st, i) => `<span class="preview-seg ${st}" style="--i:${i}"></span>`).join('')}
         </div>
         <div class="hero-preview-findings">
