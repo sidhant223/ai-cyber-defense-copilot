@@ -6,6 +6,7 @@
 const S = {
   screen: 'home', theme: store('theme') || 'light', menu: !isNarrow() && store('menu') !== 'closed', meta: null, history: [], report: null,
   sel: null, minSev: 'all', statusFilter: 'all', fileFilter: 'all', detailTab: 'diff', showSat: false, query: '', reveal: false, showSkipped: false,
+  showCalcDetails: false,
   source: 'sample', sample: 'flask-notes-app', path: '', zip: null, scope: [], useConfig: true,
   scanning: false, error: null, rules: null, ruleId: 'AUTH-001', ruleCat: 'all',
   routes: null, unprot: false, routeQuery: '', routeFilter: 'all', split: 'dev', evals: {}, evalView: null, truth: null,
