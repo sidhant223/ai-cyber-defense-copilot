@@ -5,10 +5,10 @@
 
 const S = {
   screen: 'home', theme: store('theme') || 'light', menu: !isNarrow() && store('menu') !== 'closed', meta: null, history: [], report: null,
-  sel: null, minSev: 'all', showSat: false, query: '', reveal: false, showSkipped: false,
+  sel: null, minSev: 'all', statusFilter: 'all', fileFilter: 'all', detailTab: 'diff', showSat: false, query: '', reveal: false, showSkipped: false,
   source: 'sample', sample: 'flask-notes-app', path: '', zip: null, scope: [], useConfig: true,
   scanning: false, error: null, rules: null, ruleId: 'AUTH-001', ruleCat: 'all',
-  routes: null, unprot: false, split: 'dev', evals: {}, evalView: null, truth: null,
+  routes: null, unprot: false, routeQuery: '', routeFilter: 'all', split: 'dev', evals: {}, evalView: null, truth: null,
   form: { control: '', reason: '', expires: '', where: 'config' }, toast: '',
 };
 const SCREENS = {};
@@ -85,7 +85,8 @@ function topbar() {
   const themes = `<div class="pilltabs" role="group" aria-label="Theme">${[['light', 'Light'], ['dark', 'Dark']].map(([v, l]) =>
     `<button class="${S.theme === v ? 'on' : ''}" data-act="theme" data-v="${v}" aria-pressed="${S.theme === v}"><span class="dot ${v === 'dark' ? 'fill' : ''}"></span>${l}</button>`).join('')}</div>`;
   const burger = `<button class="burger" data-act="menu" aria-controls="side" aria-expanded="${S.menu}" aria-label="${S.menu ? 'Close' : 'Open'} menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">${S.menu && isNarrow() ? '<path d="M6 6l12 12M18 6L6 18"/>' : '<path d="M4 7h16M4 12h16M4 17h16"/>'}</svg></button>`;
-  return `<header class="top"><div class="title">${burger}<b>${TITLES[S.screen]}</b><span>${cli ? '$ ' + esc(cli) : ''}</span></div>
+  const cliBtn = cli ? `<button class="click-copy" data-act="copyCli" data-v="${esc(cli)}" title="Click to copy CLI command" style="font:12px var(--mono);color:var(--mute);padding:3px 6px;border-radius:5px;display:inline-flex;align-items:center;gap:6px">$ ${esc(cli)} <span style="font-size:10px;opacity:.65">📋</span></button>` : '';
+  return `<header class="top"><div class="title">${burger}<b>${TITLES[S.screen]}</b>${cliBtn}</div>
     <div class="actions">${dl}${themes}</div></header>`;
 }
 
@@ -114,9 +115,13 @@ SCREENS.home = () => {
   const r = S.report;
   const gaps = r ? r.findings.filter(f => f.is_gap)
     .sort((a, b) => SEVR[a.severity] - SEVR[b.severity] || STR[a.status] - STR[b.status] || a.control_id.localeCompare(b.control_id)).slice(0, 5) : [];
+  const trend = r && r.diff ? `
+    <span class="score-trend ${r.diff.scoreDelta > 0 ? 'up' : r.diff.scoreDelta < 0 ? 'down' : 'same'}" title="Previous score: ${r.diff.prevScore}">
+      ${r.diff.scoreDelta > 0 ? '▲ +' : r.diff.scoreDelta < 0 ? '▼ ' : '= '}${r.diff.scoreDelta} pts vs previous scan
+    </span>` : '';
   const latest = r ? `
     <div class="row" style="gap:18px"><span class="bignum" style="color:${scoreColor(r.summary.posture_score)}">${r.summary.posture_score}</span>
-      <div class="stack g6"><span class="mono" style="font-weight:500">${gradeText(r)}</span>
+      <div class="stack g6"><div class="row" style="gap:8px;align-items:center"><span class="mono" style="font-weight:500">${gradeText(r)}</span>${trend}</div>
       <span class="mute" style="font-size:12.5px">${plural(gaps.length ? r.findings.filter(f => f.is_gap).length : 0, 'gap')} · ${r.summary.controls_scored} of ${r.summary.controls_evaluated} controls scored</span></div></div>
     ${chips(r)}
     <div class="stack" style="border-top:1px solid var(--line)"><span class="eyebrow" style="padding:12px 0 4px">Fix first</span>
@@ -143,7 +148,7 @@ SCREENS.home = () => {
   </div>
   <div class="grid2s">
     <section class="panel pad stack g16"><div class="between"><span class="eyebrow">Latest scan</span><span class="mono small mute">${esc(r ? r.source : '')}</span></div>${latest}</section>
-    <section class="panel flush"><div class="between" style="padding:14px 18px"><span class="eyebrow">Recent scans</span><span class="small mute">this session</span></div>${recent}</section>
+    <section class="panel flush"><div class="between" style="padding:14px 18px"><span class="eyebrow">Recent scans</span>${S.history.length ? '<button class="xs mute click-copy" data-act="clearHistory">Clear history</button>' : '<span class="small mute">this session</span>'}</div>${recent}</section>
   </div>
   <section class="stack g10"><span class="eyebrow">Same engine, other places</span><div class="cards">
     ${places.map(([t, c]) => `<div class="panel stack g8" style="padding:14px"><span style="font-weight:600">${t}</span><span class="mono small ink2" style="word-break:break-all;line-height:1.5">${esc(c)}</span></div>`).join('')}
@@ -182,8 +187,33 @@ SCREENS.scan = () => {
   const where = S.source === 'sample' ? `corpus/samples/${S.sample}` : S.source === 'folder' ? (S.path ? `"${S.path}"` : '<path>') : (S.zip ? S.zip.name : '<zip>');
   const cli = `copilot scan ${where}` + (S.scope.length ? ` --category ${S.scope.join(',')}` : '') + (S.useConfig ? '' : ' --no-config');
   const ready = S.source === 'sample' || (S.source === 'folder' && S.path.trim()) || (S.source === 'zip' && S.zip);
+
+  const scanBanner = S.scanning ? `
+    <div class="scan-banner stack g12" role="status" aria-live="polite">
+      <div class="between" style="align-items:center">
+        <div class="row" style="gap:10px;align-items:center">
+          <div class="scan-logo-anim"><i></i></div>
+          <div class="stack" style="gap:2px">
+            <div class="row" style="gap:8px;align-items:center">
+              <span style="font-weight:600;font-size:14px">Scanning repository…</span>
+              <span class="scan-step-dot"></span>
+            </div>
+            <span class="mono xs mute">${esc(where)}</span>
+          </div>
+        </div>
+        <span class="mono xs" style="color:var(--accent);letter-spacing:.06em">SCANNING · 28 CONTROLS</span>
+      </div>
+      <div class="scan-progress-bar"></div>
+      <div class="between mono xs mute" style="font-size:11px">
+        <span>[1/3] indexing framework & routes</span>
+        <span>[2/3] evaluating absent controls</span>
+        <span>[3/3] computing posture score</span>
+      </div>
+    </div>` : '';
+
   return `<div class="page w1240"><div class="scangrid">
   <div class="stack g18" style="min-width:0">
+    ${scanBanner}
     ${tabs([['sample', 'Corpus sample'], ['folder', 'Local folder'], ['zip', 'Upload a .zip']], S.source, 'source')}
     <div class="stack g10">${left}</div>
     ${S.error ? `<div class="error"><b>Scan failed.</b> ${esc(S.error)}${S.report ? ` The previous report (${esc(S.report.source)}) is kept.` : ''}</div>` : ''}
@@ -197,11 +227,25 @@ SCREENS.scan = () => {
       ${tabs([['all', 'All'], ['critical', 'Critical'], ['high', 'High+'], ['medium', 'Medium+'], ['low', 'Low+']], S.minSev, 'minSev', 'seg fill')}
       ${check(S.showSat, 'showSat', 'Show satisfied controls')}</div>
     <div class="code">$ ${esc(cli)}</div>
-    <button class="btn primary block" data-act="scan" ${ready && !S.scanning ? '' : 'disabled'}>${S.scanning ? 'Scanning…' : 'Scan'}</button>
+    <button class="btn primary block" data-act="scan" ${ready && !S.scanning ? '' : 'disabled'}>${S.scanning ? '<span class="btn-spinner"></span>Scanning…' : 'Scan'}</button>
   </div></div></div>`;
 };
 
-// ---------------------------------------------------------------- actions
+// ---------------------------------------------------------------- persistence & actions
+const LOCAL_SCANS = 'copilot_saved_reports';
+function getSavedReports() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_SCANS) || '{}'); } catch(e) { return {}; }
+}
+function saveReport(r) {
+  try {
+    const all = getSavedReports();
+    all[r.id] = r;
+    const keys = Object.keys(all);
+    if (keys.length > 20) delete all[keys[0]];
+    localStorage.setItem(LOCAL_SCANS, JSON.stringify(all));
+  } catch(e) {}
+}
+
 Object.assign(ACTIONS, {
   go: v => navigate(v),
   menu: () => { const open = !S.menu; if (!isNarrow()) store('menu', open ? 'open' : 'closed'); set({ menu: open }); },
@@ -211,27 +255,67 @@ Object.assign(ACTIONS, {
   scope: v => set({ scope: S.scope.includes(v) ? S.scope.filter(x => x !== v) : [...S.scope, v] }),
   useConfig: () => set({ useConfig: !S.useConfig }),
   minSev: v => set({ minSev: v }),
+  statusFilter: v => set({ statusFilter: v }),
+  fileFilter: v => set({ fileFilter: v }),
+  detailTab: v => set({ detailTab: v }),
+  routeFilter: v => set({ routeFilter: v }),
   showSat: () => set({ showSat: !S.showSat }),
   open: v => { set({ sel: v, query: '' }); navigate('report'); },
-  load: async v => { try { set({ report: await api('/api/report/' + v), sel: null, routes: null }); navigate('report'); } catch (e) { flash(e.message); } },
+  copyCli: v => {
+    navigator.clipboard.writeText(v).then(() => flash('CLI command copied'), () => flash('Copy failed'));
+  },
+  copyText: v => {
+    navigator.clipboard.writeText(v).then(() => flash('Copied: ' + v), () => flash('Copy failed'));
+  },
+  clearHistory: () => {
+    try { localStorage.removeItem(LOCAL_SCANS); } catch(e) {}
+    set({ history: [] });
+    flash('Session history cleared');
+  },
+  load: async v => {
+    try {
+      let rep;
+      try { rep = await api('/api/report/' + v); } catch(err) {
+        rep = getSavedReports()[v];
+        if (!rep) throw err;
+      }
+      set({ report: rep, sel: null, routes: null, query: '', statusFilter: 'all', fileFilter: 'all' });
+      navigate('report');
+    } catch (e) { flash(e.message); }
+  },
   scan: runScan,
 });
 
 async function runScan() {
   if (S.scanning) return;
   set({ scanning: true, error: null });
+  const minDelay = new Promise(resolve => setTimeout(resolve, 500));
   try {
-    let report;
+    const targetSource = S.source === 'sample' ? S.sample : S.source === 'folder' ? S.path : (S.zip ? S.zip.name : '');
+    const prev = S.history.find(h => h.source === targetSource || (targetSource && h.source.endsWith(targetSource)));
+
+    let scanPromise;
     if (S.source === 'zip') {
       const q = new URLSearchParams({ name: S.zip.name, categories: S.scope.join(','), use_config: S.useConfig ? '1' : '0' });
-      report = await api('/api/scan-zip?' + q, { method: 'POST', body: S.zip });
+      scanPromise = api('/api/scan-zip?' + q, { method: 'POST', body: S.zip });
     } else {
-      report = await api('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      scanPromise = api('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: S.source === 'sample' ? 'sample' : 'folder', name: S.sample, path: S.path,
           categories: S.scope, use_config: S.useConfig }) });
     }
+    const [report] = await Promise.all([scanPromise, minDelay]);
+    if (prev) {
+      const curGaps = report.findings.filter(f => f.is_gap).length;
+      report.diff = {
+        scoreDelta: report.summary.posture_score - prev.score,
+        gapsDelta: prev.gaps - curGaps,
+        prevScore: prev.score,
+        prevGaps: prev.gaps
+      };
+    }
+    saveReport(report);
     S.history = await api('/api/history');
-    set({ report, sel: null, routes: null, scanning: false, screen: 'report', query: '' });
+    set({ report, sel: null, routes: null, scanning: false, screen: 'report', query: '', statusFilter: 'all', fileFilter: 'all' });
   } catch (e) {
     set({ scanning: false, error: e.message });
   }
@@ -263,6 +347,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   if (e.target.dataset && e.target.dataset.bind === 'zip') set({ zip: e.target.files[0] || null, error: null });
   else if (e.target.dataset && e.target.dataset.bind === 'form.control') set({ form: { ...S.form, control: e.target.value } });
+  else if (e.target.dataset && e.target.dataset.act === 'fileFilter') set({ fileFilter: e.target.value });
 });
 document.addEventListener('dragover', e => { if (e.target.closest('#drop')) { e.preventDefault(); e.target.closest('#drop').classList.add('over'); } });
 document.addEventListener('drop', e => {
@@ -272,13 +357,51 @@ document.addEventListener('drop', e => {
   if (f && f.name.toLowerCase().endsWith('.zip')) set({ zip: f, error: null }); else flash('Only .zip files can be scanned.');
 });
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.menu && isNarrow()) set({ menu: false }); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (S.menu && isNarrow()) { set({ menu: false }); return; }
+    if (S.query) { set({ query: '' }); return; }
+  }
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+  if (e.key === '/' && S.screen === 'report') {
+    e.preventDefault();
+    const qEl = document.querySelector('input[data-bind="query"]');
+    if (qEl) qEl.focus();
+    return;
+  }
+
+  if ((e.key === 'j' || e.key === 'ArrowDown' || e.key === 'k' || e.key === 'ArrowUp') && S.screen === 'report' && S.report && typeof shownFindings === 'function') {
+    const list = shownFindings(S.report);
+    if (!list.length) return;
+    e.preventDefault();
+    const curIdx = list.findIndex(f => f.control_id === S.sel);
+    let nextIdx = 0;
+    if (e.key === 'j' || e.key === 'ArrowDown') {
+      nextIdx = curIdx >= 0 ? Math.min(list.length - 1, curIdx + 1) : 0;
+    } else {
+      nextIdx = curIdx > 0 ? curIdx - 1 : 0;
+    }
+    const nextId = list[nextIdx].control_id;
+    ACTIONS.pick(nextId);
+    const btn = document.querySelector(`button[data-act="pick"][data-v="${nextId}"]`);
+    if (btn) btn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+});
+
 window.matchMedia('(max-width: 900px)').addEventListener('change', e => set({ menu: !e.matches && store('menu') !== 'closed' }));
 window.addEventListener('DOMContentLoaded', async () => {
   render();
   try {
     const [meta, history] = await Promise.all([api('/api/meta'), api('/api/history')]);
     set({ meta, history });
-    if (history.length) set({ report: await api('/api/report/' + history[0].id) });
+    if (history.length) {
+      let rep;
+      try { rep = await api('/api/report/' + history[0].id); }
+      catch(e) { rep = getSavedReports()[history[0].id]; }
+      if (rep) set({ report: rep });
+    }
   } catch (e) { flash('Could not reach the local server: ' + e.message); }
 });
+

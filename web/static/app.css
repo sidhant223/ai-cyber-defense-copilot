@@ -5,6 +5,8 @@
   --absent:oklch(0.52 0.17 28); --partial:oklch(0.56 0.12 70); --present:oklch(0.5 0.11 152);
   --na:#7c7f86; --accent:oklch(0.48 0.14 262); --code:#f6f6f3;
   --hl:oklch(0.52 0.17 28 / .11); --win:oklch(0.56 0.12 70 / .09); --track:oklch(0.52 0.17 28 / .16);
+  --syn-kw:oklch(0.48 0.16 270); --syn-str:oklch(0.46 0.14 150); --syn-dec:oklch(0.5 0.16 320);
+  --syn-com:oklch(0.56 0.03 260); --syn-num:oklch(0.52 0.16 55); --syn-fn:oklch(0.45 0.14 220);
   --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
   color-scheme: light;
 }
@@ -14,6 +16,8 @@
   --absent:oklch(0.72 0.15 28); --partial:oklch(0.8 0.12 78); --present:oklch(0.76 0.12 152);
   --na:#8d9096; --accent:oklch(0.76 0.11 262); --code:#0c0d0f;
   --hl:oklch(0.72 0.15 28 / .14); --win:oklch(0.8 0.12 78 / .07); --track:oklch(0.72 0.15 28 / .2);
+  --syn-kw:oklch(0.78 0.14 270); --syn-str:oklch(0.78 0.12 150); --syn-dec:oklch(0.8 0.14 320);
+  --syn-com:oklch(0.68 0.03 260); --syn-num:oklch(0.8 0.14 55); --syn-fn:oklch(0.78 0.12 220);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -172,6 +176,38 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 7px 12px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--mute); }
 .legend i { display: inline-block; width: 10px; height: 10px; background: var(--hl); box-shadow: inset 2px 0 0 var(--absent); margin-right: 6px; vertical-align: -1px; }
 
+/* Syntax highlighting */
+.syn-kw { color: var(--syn-kw); font-weight: 500; }
+.syn-str { color: var(--syn-str); }
+.syn-dec { color: var(--syn-dec); font-weight: 500; }
+.syn-com { color: var(--syn-com); font-style: italic; }
+.syn-num { color: var(--syn-num); }
+.syn-fn { color: var(--syn-fn); }
+
+/* Unified Remediation Diff view */
+.diff-box { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--code); font: 12px/1.65 var(--mono); }
+.diff-head { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; background: var(--sunk); border-bottom: 1px solid var(--line); font-size: 11.5px; }
+.diff-body { padding: 6px 0; overflow-x: auto; }
+.diff-ln { display: flex; padding-right: 12px; }
+.diff-ln .sign { width: 24px; flex: none; text-align: center; font-weight: 600; user-select: none; }
+.diff-ln .text { white-space: pre; flex: 1; }
+.diff-ln.add { background: var(--win); color: var(--ink); box-shadow: inset 3px 0 0 var(--present); }
+.diff-ln.add .sign { color: var(--present); }
+.diff-ln.del { background: var(--hl); color: var(--ink); box-shadow: inset 3px 0 0 var(--absent); opacity: .85; }
+.diff-ln.del .sign { color: var(--absent); }
+.diff-ln.ctx { color: var(--mute); }
+
+/* Quick actions & Interactive tokens */
+.click-copy { cursor: pointer; transition: opacity .15s ease; border-radius: 4px; padding: 2px 4px; }
+.click-copy:hover { background: var(--sunk); text-decoration: underline; }
+.score-trend { font: 600 11px var(--mono); padding: 2px 7px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
+.score-trend.up { background: var(--win); color: var(--present); }
+.score-trend.down { background: var(--hl); color: var(--absent); }
+.score-trend.same { background: var(--sunk); color: var(--mute); }
+.kbd { font: 10px var(--mono); padding: 1.5px 5px; border-radius: 4px; border: 1px solid var(--line2); background: var(--sunk); color: var(--mute); vertical-align: middle; }
+.filter-chip-count { font: 10.5px var(--mono); opacity: .75; margin-left: 4px; }
+
+
 .grid-accept { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 16px; align-items: start; }
 .grid-180 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .grid-200 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
@@ -210,6 +246,91 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .cmd button { position: absolute; top: 6px; right: 6px; font: 500 11px var(--mono); padding: 3px 8px;
               border: 1px solid var(--line2); border-radius: 5px; background: var(--panel); color: var(--ink2); }
 .cmd button:hover { background: var(--sunk); }
+
+/* ---------- scanning animation ---------- */
+@keyframes scan-beam {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(260%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes scan-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.65); opacity: 0.45; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.scan-banner {
+  background: var(--panel);
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.04);
+}
+
+.scan-progress-bar {
+  height: 4px;
+  background: var(--sunk);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+  margin: 4px 0;
+}
+
+.scan-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, var(--ink), transparent);
+  animation: scan-beam 1.4s ease-in-out infinite;
+  border-radius: 2px;
+}
+
+[data-theme="dark"] .scan-progress-bar::after {
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+.scan-logo-anim {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+}
+
+.scan-logo-anim i {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 1.5px;
+  animation: scan-pulse 1.2s ease-in-out infinite;
+}
+
+.scan-step-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: scan-pulse 0.9s infinite alternate;
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  margin-right: 8px;
+  vertical-align: -1px;
+}
 
 @media (max-width: 1100px) {
   .scangrid { grid-template-columns: minmax(0, 1fr); }

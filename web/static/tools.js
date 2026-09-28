@@ -9,21 +9,56 @@ SCREENS.routes = () => {
   const { columns, rows } = S.routes;
   if (!rows.length) return `<div class="page w1240"><div class="dashed"><span style="font-weight:500">No route handlers found</span>
     <span class="mute" style="font-size:12.5px">The route-shaped controls found no subjects in ${esc(r.source)}, so there is no attack surface table to show.</span></div></div>`;
+
   const count = (col, v) => rows.filter(x => x.columns[col] === v).length;
-  const stats = [['routes found', rows.length, 'var(--ink)'], ['unprotected', rows.filter(x => x.unprotected).length, 'var(--absent)'],
-    ['unauthenticated', count('auth', 'no'), 'var(--absent)'], ['admin without role check', count('role check', 'no'), 'var(--absent)'],
-    ['credential routes rate limited', count('rate limit', 'yes'), 'var(--present)']];
-  const shown = S.unprot ? rows.filter(x => x.unprotected) : rows;
-  const tpl = `grid-template-columns:110px minmax(220px,1.6fr) ${columns.map(() => '1fr').join(' ')}`;
+  const unprotCount = rows.filter(x => x.unprotected).length;
+  const noAuthCount = count('auth', 'no');
+  const noRoleCount = count('role check', 'no');
+  const noRateCount = count('rate limit', 'no');
+
+  const stats = [
+    ['routes found', rows.length, 'var(--ink)'],
+    ['unprotected', unprotCount, unprotCount ? 'var(--absent)' : 'var(--present)'],
+    ['unauthenticated', noAuthCount, noAuthCount ? 'var(--absent)' : 'var(--present)'],
+    ['admin without role check', noRoleCount, noRoleCount ? 'var(--absent)' : 'var(--present)'],
+    ['credential routes rate limited', count('rate limit', 'yes'), 'var(--present)']
+  ];
+
+  const q = (S.routeQuery || '').trim().toLowerCase();
+  const shown = rows.filter(x => {
+    if (S.routeFilter === 'unprot' && !x.unprotected) return false;
+    if (S.routeFilter === 'no-auth' && x.columns['auth'] !== 'no') return false;
+    if (S.routeFilter === 'no-role' && x.columns['role check'] !== 'no') return false;
+    if (S.routeFilter === 'no-rate' && x.columns['rate limit'] !== 'no') return false;
+    if (q && !(x.file_path.toLowerCase().includes(q) || x.snippet.toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  const filterTabs = [
+    ['all', `All (${rows.length})`],
+    ['unprot', `Unprotected (${unprotCount})`],
+    ['no-auth', `Missing auth (${noAuthCount})`],
+    ['no-rate', `Missing rate limit (${noRateCount})`],
+    ['no-role', `Missing role check (${noRoleCount})`]
+  ];
+
+  const tpl = `grid-template-columns:120px minmax(220px,1.6fr) ${columns.map(() => '1fr').join(' ')}`;
   const cell = v => `<span class="mono small" style="color:${v === 'yes' ? 'var(--present)' : v === 'no' ? 'var(--absent)' : 'var(--mute)'}">${esc(v)}</span>`;
-  return `<div class="page w1240">
+
+  return `<div class="page w1240 stack g16">
     <div class="row" style="gap:10px">${stats.map(([k, v, c]) => `<div class="panel stat"><b style="color:${c}">${v}</b><span class="small mute">${k}</span></div>`).join('')}</div>
-    <div class="row">${check(S.unprot, 'unprot', 'Unprotected only')}</div>
+    <div class="row" style="gap:10px">
+      <input class="field mono" data-bind="routeQuery" value="${esc(S.routeQuery)}" placeholder="Search endpoints or paths (e.g. /login, POST, admin)..." style="flex:1;max-width:360px" aria-label="Search routes">
+      ${tabs(filterTabs, S.routeFilter || 'all', 'routeFilter')}
+      <button class="btn sm" data-act="copyRouteTable" style="margin-left:auto">Copy Markdown Table</button>
+    </div>
     <div class="panel" style="overflow-x:auto"><div class="table">
       <div class="trow head" style="${tpl}"><span>Location</span><span>Route</span>${columns.map(c => `<span>${esc(c)}</span>`).join('')}</div>
-      ${shown.map(x => `<div class="trow ${x.unprotected ? 'hot' : ''}" style="${tpl}">
-        <span class="mono small mute">${esc(x.file_path)}:${x.line}</span><span class="mono small clip" title="${esc(x.snippet.trim())}">${esc(x.snippet.trim())}</span>
-        ${columns.map(c => cell(x.columns[c])).join('')}</div>`).join('')}
+      ${shown.length ? shown.map(x => `<div class="trow ${x.unprotected ? 'hot' : ''}" style="${tpl}">
+        <button class="mono small mute click-copy" data-act="copyText" data-v="${esc(x.file_path)}:${x.line}" title="Click to copy location" style="text-align:left">${esc(x.file_path)}:${x.line}</button>
+        <span class="mono small clip" title="${esc(x.snippet.trim())}">${highlightLine(x.snippet.trim(), x.file_path.split('.').pop())}</span>
+        ${columns.map(c => cell(x.columns[c])).join('')}</div>`).join('')
+        : '<div class="pad mute small">No routes match the current filter.</div>'}
     </div></div>
     <span class="small mute">A dash means that control did not consider the line a subject: a listing endpoint has no credential rate limit to miss. Login, register, logout, health and similar paths are unauthenticated by design and never counted as gaps.</span>
   </div>`;
@@ -167,6 +202,23 @@ Object.assign(ACTIONS, {
   copySnippet: () => {
     const el = document.querySelector('.sticky .code.pre');
     navigator.clipboard.writeText(el ? el.textContent : '').then(() => flash('Snippet copied'), () => flash('Copy failed; select the text instead'));
+  },
+  copyRouteTable: () => {
+    if (!S.routes || !S.routes.rows.length) return;
+    const { columns, rows } = S.routes;
+    const q = (S.routeQuery || '').trim().toLowerCase();
+    const shown = rows.filter(x => {
+      if (S.routeFilter === 'unprot' && !x.unprotected) return false;
+      if (S.routeFilter === 'no-auth' && x.columns['auth'] !== 'no') return false;
+      if (S.routeFilter === 'no-role' && x.columns['role check'] !== 'no') return false;
+      if (S.routeFilter === 'no-rate' && x.columns['rate limit'] !== 'no') return false;
+      if (q && !(x.file_path.toLowerCase().includes(q) || x.snippet.toLowerCase().includes(q))) return false;
+      return true;
+    });
+    const header = '| Location | Route | ' + columns.join(' | ') + ' |\n| --- | --- | ' + columns.map(() => '---').join(' | ') + ' |';
+    const lines = shown.map(x => `| ${x.file_path}:${x.line} | \`${x.snippet.trim().replace(/\|/g, '\\|')}\` | ` + columns.map(c => x.columns[c] || '-').join(' | ') + ' |');
+    const tableMd = header + '\n' + lines.join('\n');
+    navigator.clipboard.writeText(tableMd).then(() => flash('Route table copied to clipboard'), () => flash('Copy failed'));
   },
   rule: v => set({ ruleId: v }),
   ruleCat: v => set({ ruleCat: v, ruleId: (S.rules.find(x => v === 'all' || x.category === v) || {}).id || S.ruleId }),
