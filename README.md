@@ -108,7 +108,7 @@ The same guide is built into the app: open **Guide** in the menu (☰).
    Reports last only until the server stops, so download the ones you keep.
 10. **Fix, then scan again** to see the score move.
 
-A clean report means none of the 28 checks found a gap. It is not proof that
+A clean report means none of the 43 checks found a gap. It is not proof that
 a project is secure.
 
 ## The screens
@@ -120,7 +120,7 @@ a project is secure.
 | **Report** | Score, a weight bar with one segment per control, findings grouped by category, the real source lines behind each finding, remediation, fix prompt, downloads. |
 | **Routes** | Every route handler and whether it has authentication, a credential rate limit and a role check. |
 | **Accepted** | Suppressions in force, and a form that writes a new one and previews its effect on the score. |
-| **Rules** | All 28 controls, each with its YAML definition, verdict mapping and status in the current scan. |
+| **Rules** | All 43 controls, each with its YAML definition, verdict mapping and status in the current scan. |
 | **Evaluation** | *This project:* statistics for the latest scan (and ground truth when it is a labelled sample). *Corpus:* the dev-split evaluation of all eight samples. |
 | **How it works / Guide** | Scoring, limits, and these instructions. |
 
@@ -331,7 +331,7 @@ AUTH-001  partial  critical  4 of 6 HTTP route handler(s) are authenticated; 2 a
 
 ## Controls
 
-Twenty-eight across five categories. Full detail, including known
+Forty-three across eight categories. Full detail, including known
 limitations, in [docs/controls.md](docs/controls.md).
 
 | Category | Covers |
@@ -341,6 +341,9 @@ limitations, in [docs/controls.md](docs/controls.md).
 | Rate limiting | Limiter registration, global default, credential endpoints |
 | Secret management | Provider key formats, connection strings, entropy, `.env` handling, env-sourced config |
 | Access control | CORS, debug mode, security headers, admin role checks, host allowlist, exception detail in responses |
+| Web security | Content-Security-Policy, HSTS, open redirects, outbound TLS verification, CSRF switched off |
+| Logging & errors | Logger configured, authentication events logged, credentials kept out of logs, central error handler (Express/Koa), swallowed exceptions |
+| Injection | NoSQL operator injection, unsafe deserializers, SSRF, path traversal, raw-HTML (XSS) sinks |
 
 Frameworks: Flask, FastAPI, Django, Express, Next.js. Languages: Python,
 JavaScript, TypeScript. Anything else runs the framework-agnostic controls
@@ -505,15 +508,18 @@ The tool also scans itself in CI:
 
 ```bash
 copilot scan . --config config/self-scan.copilot.yaml
-# 28 checks · 11 applicable · 0 gaps · score 100 · 3 accepted
+# 43 checks · 21 applicable · 0 gaps · score 100 · 6 accepted
 ```
 
-Three findings on its own source are accepted in that config, with reasons: a
+Six findings on its own source are accepted in that config, with reasons: a
 pair of route decorators that live inside docstrings; rate limiting for a
-local single-user server bound to 127.0.0.1; and the browser UI displaying
+local single-user server bound to 127.0.0.1; the browser UI displaying
 the server's fixed error messages, which a regex reads as leaked exception
-detail. All three are the documented cost of matching lines with regexes
-instead of parsing them. Scanning itself is also how two rule precision bugs
+detail; the UI's `innerHTML` rendering, which escapes every repo-derived value
+with `esc()`; example login routes inside a string literal; and three empty
+exception handlers that are deliberate (Ctrl+C, unavailable browser storage).
+Most are the documented cost of matching lines with regexes instead of
+parsing them. Scanning itself is also how two rule precision bugs
 were found — see `config/self-scan.copilot.yaml`.
 
 ## Constraints

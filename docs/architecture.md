@@ -58,6 +58,11 @@ Five modules, one per control category, each a subclass of `Detector` with a
 together are under 100 lines, because the logic lives in YAML and is executed
 by a shared engine.
 
+A category does not need a module at all. `web_security`, `logging_errors` and
+`injection` exist only as YAML. `run_all` gives any category without a
+registered class a generic `YamlOnlyDetector`, so adding a category is a data
+change.
+
 They are independent by construction: none imports another, none holds state
 between runs, each takes a `ScanResult` and returns findings. A test asserts
 the no-cross-imports property structurally rather than trusting the
@@ -131,9 +136,12 @@ no interpolation marker sits on the same line.
 `proximity` also takes `stop_at`, a pattern that halts the scan in each
 direction. Without it a five-line window reaches over the end of one function
 into the next, and a decorator on the following handler gets credited to this
-one. Every proximity guard in the shipped rule set stops at a blank line:
-decorator stacks and function signatures never contain one, but functions are
-separated by one, so the boundary is exactly where the scan should stop.
+one. Guards that read a decorator stack stop at a blank line: decorator
+stacks and function signatures never contain one, but functions are separated
+by one, so the boundary is exactly where the scan should stop. Guards that read
+a handler *body* (WEB-003, INJ-003, INJ-004, LOG-002) cannot use a blank line,
+because bodies contain them. They stop at the enclosing `def`, decorator or
+route call instead.
 
 A control may declare several guards; a subject is satisfied when any one of
 them matches. Express is why: the same protection can be written on the route,

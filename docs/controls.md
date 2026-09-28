@@ -1,6 +1,6 @@
 # Controls
 
-Twenty-eight controls across five categories. Each one is defined in a YAML
+Forty-three controls across eight categories. Each one is defined in a YAML
 file under `src/copilot/rules/` and can be interrogated live:
 
 ```bash
@@ -262,6 +262,106 @@ AC-002 instead, so the two do not double-count the same leak.
 
 ---
 
+## Web security
+
+The browser-facing protections that AC-003 only samples.
+
+| ID | Control | Severity | Mode |
+|---|---|---|---|
+| WEB-001 | Content-Security-Policy defined | medium | presence |
+| WEB-002 | HSTS enabled | medium | presence |
+| WEB-003 | No open redirects | medium | subject/guard |
+| WEB-004 | Outbound TLS verification not disabled | high | presence (inverted) |
+| WEB-005 | CSRF protection not switched off | medium | presence (inverted) |
+
+**WEB-001 / WEB-002** pass on any one security header in AC-003's terms, so
+they ask for the two headers that matter most by name. `helmet()` and
+`Talisman()` count, because both send a CSP and HSTS by default; switching
+either off in the same call (`contentSecurityPolicy: false`) does not. Both
+apply only to recognised web frameworks, and both carry medium confidence,
+because a header set by a reverse proxy is invisible to a code scan. Accept
+the control in `.copilot.yaml` when that is the case.
+
+**WEB-003** takes a redirect whose argument comes from the request (or a
+variable named `next…`) as its subject, and looks a few lines above for a
+check that keeps the target on-site. `redirect(url_for(..., next=...))` is
+excluded: `next` there is an argument, not the target.
+
+**WEB-005** complements AUTH-008. AUTH-008 asks whether a CSRF defence exists;
+WEB-005 asks whether it was then switched off (`@csrf_exempt`,
+`WTF_CSRF_ENABLED = False`). A signed webhook is a legitimate exemption.
+Accept it inline, with the reason.
+
+---
+
+## Logging & error handling
+
+Whether the application leaves a trail and fails safely.
+
+| ID | Control | Severity | Mode |
+|---|---|---|---|
+| LOG-001 | Application logging configured | low | presence |
+| LOG-002 | Authentication events logged | medium | subject/guard |
+| LOG-003 | Secrets not written to logs | high | presence (inverted) |
+| LOG-004 | Central error handler registered (Express, Koa) | medium | presence |
+| LOG-005 | Exceptions not silently swallowed | low | subject/guard (forbid) |
+
+**LOG-002** reuses RATE-002's credential-endpoint subject and looks for a log
+call in the handler body, up to the next route.
+
+**LOG-003** matches a credential *interpolated into* or *passed to* a log call,
+not a message that merely names one: `log.warning("invalid password for %s",
+email)` is fine, while `log.info(f"... {password}")` is not. Identifiers of
+something else (`token_id`, `password_reset`) are skipped.
+
+**LOG-004** is judged for Express and Koa only. Their default error response
+carries the stack trace unless `NODE_ENV` is production. Flask, FastAPI and
+Django answer an unhandled error with a generic 500 when debug is off, and
+debug mode is AC-002's job.
+
+**LOG-005** takes an `except` or `catch` whose line ends at its opening colon or
+brace, and flags an empty body (`pass`, `{}`, or a lone `}` on the next line).
+A one-line handler with a body is not judged. A deliberate swallow should be
+accepted with its reason, as this repository's own self-scan config does.
+
+---
+
+## Injection & unsafe code
+
+Injection paths that INPUT-002 (SQL) and INPUT-004 (shell, `eval`,
+`pickle.loads`) do not cover.
+
+| ID | Control | Severity | Mode |
+|---|---|---|---|
+| INJ-001 | No NoSQL operator injection | high | presence (inverted) |
+| INJ-002 | No unsafe deserializers | critical | presence (inverted) |
+| INJ-003 | Outbound requests not built from request input (SSRF) | high | subject/guard |
+| INJ-004 | File paths not built from request input | high | subject/guard |
+| INJ-005 | User input not rendered as raw HTML | high | presence (inverted) |
+
+**INJ-002** deliberately leaves out `pickle.loads` and a bare `yaml.load`,
+which INPUT-004 already judges, so one line is never penalised twice. It
+covers the rest of the family: `pickle.load`, `marshal`, `dill`, `joblib`,
+`shelve`, `jsonpickle`, `yaml.load(..., Loader=yaml.Loader)` and
+`node-serialize`.
+
+**INJ-003 / INJ-004** only recognise request input on the line where it is
+used. See *Request input is recognised per line* below. INJ-004 also takes
+a client-supplied upload name (`file.filename`, multer's `originalname`) as
+request input.
+
+**INJ-005** lists the ways escaping is bypassed: `render_template_string` or
+`Markup` over request data, `autoescape=False`, `dangerouslySetInnerHTML`,
+`innerHTML`, `document.write`, `res.send` of request data, and raw template
+output (`<%-`, `{{{`). It cannot tell whether the value was sanitised first,
+which is why this repository accepts it for its own UI.
+
+**Corpus coverage.** None of the eight labelled samples contains an injection
+flaw of these kinds, so these five controls are measured only by their rule
+examples until a holdout sample exercises them.
+
+---
+
 ## Known limitations
 
 Stated rather than hidden, because a scanner you cannot calibrate is a
@@ -291,6 +391,21 @@ API as having none. `corpus/samples/express-admin-panel` records the case.
 For the same reason, AC-004 reports `NOT_APPLICABLE` for
 `express-admin-panel`: the admin prefix lives on the mount, so no route path
 inside `routes/admin.js` contains `/admin`.
+
+### Request input is recognised per line
+
+WEB-003, INJ-003 and INJ-004 look for request input (`request.args`,
+`req.query`, an upload's filename) on the same line as the redirect, fetch or
+file call. A value copied into a variable first is missed:
+
+```python
+url = request.args["url"]
+requests.get(url)          # not a subject
+```
+
+Following it would need dataflow analysis, the same limit as cross-module
+middleware above. These controls therefore under-report rather than
+over-report.
 
 ### Regex, not a parser
 

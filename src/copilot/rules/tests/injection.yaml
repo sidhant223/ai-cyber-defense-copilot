@@ -1,0 +1,162 @@
+# Executable examples for injection.yaml. See authentication.yaml in this
+# directory for what these are and how they run.
+
+INJ-001:
+  - name: query built from typed fields
+    expect: present
+    files:
+      routes.js: |
+        router.post('/login', async (req, res) => {
+          const user = await User.findOne({ email: String(req.body.email) });
+        });
+
+  - name: request body passed as the query
+    expect: absent
+    files:
+      routes.js: |
+        router.post('/login', async (req, res) => {
+          const user = await User.findOne(req.body);
+        });
+
+  - name: $where clause
+    expect: absent
+    files:
+      repo.js: |
+        db.users.find({ "$where": "this.age > " + age });
+
+INJ-002:
+  - name: json only
+    expect: present
+    files:
+      load.py: |
+        import json
+        data = json.loads(raw)
+
+  - name: yaml with the unsafe loader
+    expect: absent
+    files:
+      load.py: |
+        import yaml
+        data = yaml.load(raw, Loader=yaml.Loader)
+
+  - name: safe loader is fine
+    expect: present
+    files:
+      load.py: |
+        import yaml
+        data = yaml.load(raw, Loader=yaml.SafeLoader)
+
+  - name: node-serialize
+    expect: absent
+    files:
+      session.js: |
+        const serialize = require('node-serialize');
+        const obj = serialize.unserialize(req.cookies.profile);
+
+INJ-003:
+  - name: fetch URL checked against an allowlist
+    expect: present
+    files:
+      app.py: |
+        import requests
+        from urllib.parse import urlparse
+        from flask import Flask, request
+        app = Flask(__name__)
+        ALLOWED_HOSTS = {"images.example.com"}
+
+        @app.route("/preview")
+        def preview():
+            if urlparse(request.args["url"]).hostname not in ALLOWED_HOSTS:
+                return "no", 400
+            return requests.get(request.args["url"], timeout=5).text
+
+  - name: fetches whatever the client sends
+    expect: absent
+    files:
+      routes.js: |
+        router.get('/proxy', async (req, res) => {
+          const r = await axios.get(req.query.url);
+          res.send(r.data);
+        });
+
+  - name: no outbound request from request input
+    expect: not_applicable
+    files:
+      app.py: |
+        import requests
+        requests.get("https://api.example.com/status", timeout=5)
+
+INJ-004:
+  - name: upload name sanitised
+    expect: present
+    files:
+      app.py: |
+        import os
+        from flask import Flask, request
+        from werkzeug.utils import secure_filename
+        app = Flask(__name__)
+
+        @app.route("/upload", methods=["POST"])
+        def upload():
+            f = request.files["file"]
+            f.save(os.path.join("uploads", secure_filename(f.filename)))
+            return "ok"
+
+  - name: client filename used as the path
+    expect: absent
+    files:
+      app.py: |
+        import os
+        from flask import Flask, request
+        app = Flask(__name__)
+
+        @app.route("/upload", methods=["POST"])
+        def upload():
+            f = request.files["file"]
+            f.save(os.path.join("uploads", f.filename))
+            return "ok"
+
+  - name: download path from a query parameter
+    expect: absent
+    files:
+      routes.js: |
+        router.get('/download', (req, res) => {
+          res.sendFile(path.join(__dirname, 'files', req.query.name));
+        });
+
+INJ-005:
+  - name: template rendered with escaping
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask, render_template, request
+        app = Flask(__name__)
+
+        @app.route("/hello")
+        def hello():
+            return render_template("hello.html", name=request.args.get("name"))
+
+  - name: user input in render_template_string
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, render_template_string, request
+        app = Flask(__name__)
+
+        @app.route("/hello")
+        def hello():
+            return render_template_string(f"<h1>Hello {request.args.get('name')}</h1>")
+
+  - name: query echoed by express
+    expect: absent
+    files:
+      routes.js: |
+        router.get('/search', (req, res) => {
+          res.send(`<p>Results for ${req.query.q}</p>`);
+        });
+
+  - name: innerHTML in the browser
+    expect: absent
+    files:
+      ui.js: |
+        document.getElementById('out').innerHTML = location.hash;

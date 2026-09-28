@@ -14,7 +14,7 @@ from copilot.config import CONFIG_FILENAME, Config, ConfigError, load_config
 from conftest import SAMPLES
 
 VULNERABLE = SAMPLES / "flask-notes-app"
-FLASK_NOTES_LINE = "28 checks · 22 applicable · 15 gaps · score 46"
+FLASK_NOTES_LINE = "43 checks · 32 applicable · 19 gaps · score 53"
 
 
 def _copy_sample(tmp_path) -> Path:
@@ -82,7 +82,7 @@ class TestScanPrecedence:
         _write_config(repo, "min_severity: critical\nmin_confidence: high\n")
         main(["scan", str(repo), "--format", "json"])
         with_config = json.loads(capsys.readouterr().out)["summary"]["posture_score"]
-        assert without == with_config == 46
+        assert without == with_config == 53
 
 
 class TestCategoriesKey:

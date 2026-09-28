@@ -1,0 +1,217 @@
+category: logging_errors
+description: >
+  Checks whether the application leaves a trail and fails safely: logging is
+  configured, logins are recorded, credentials never reach the log, errors
+  land in one handler, and exceptions are not silently thrown away.
+
+controls:
+  - id: LOG-001
+    name: Application logging configured
+    severity: low
+    cwe: CWE-778
+    owasp: A09:2021
+    description: >
+      Without a configured logger there is nothing to investigate after an
+      incident; print statements and default stderr do not survive a restart.
+    applies_to:
+      frameworks: [flask, fastapi, django, express, nextjs, koa, nestjs, starlette]
+      index_buckets: [source, config, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\blogging\.(?:basicConfig|getLogger|config\.dictConfig|config\.fileConfig)\s*\('
+          - '^\s*LOGGING\s*=\s*\{'
+          - '\bimport\s+(?:structlog|loguru)\b|\bfrom\s+(?:structlog|loguru)\s+import'
+          - 'require\s*\(\s*["''](?:winston|pino|bunyan|morgan|log4js|pino-http)["'']\s*\)'
+          - '\bfrom\s+["''](?:winston|pino|bunyan|morgan|log4js|pino-http)["'']'
+          - '\bnew\s+Logger\s*\(|\bLogger\.(?:log|warn|error)\s*\('
+    verdict:
+      found: present
+      not_found: absent
+    remediation_hint: >
+      Configure one logger at startup -- logging.config.dictConfig in Python,
+      winston or pino in Node -- with a level and a destination that outlives
+      the process, and log through it instead of print or console.log.
+
+  - id: LOG-002
+    name: Authentication events logged
+    severity: medium
+    cwe: CWE-778
+    owasp: A09:2021
+    description: >
+      Logins, registrations and password resets should leave a log line, so
+      credential stuffing and account takeover show up as a pattern instead
+      of passing unseen.
+    applies_to:
+      index_buckets: [routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: credential endpoint
+        flags: [ignorecase]
+        # Same subject as RATE-002: the endpoints attackers actually hit.
+        pattern: '(?:@(?:app|router|bp|api|[A-Za-z_]\w*_bp)\.(?:route|post|get|put)|(?:app|router|api)\.(?:post|get|put))\s*\(\s*["''`][^"''`]*(?:login|signin|sign-in|log-in|register|signup|sign-up|password[/_-]?reset|reset[/_-]?password|forgot[/_-]?password|token|authenticate|otp|verify[/_-]?code|magic[/_-]?link)'
+      guard:
+        type: regex
+        description: logged in the handler
+        scope: proximity
+        proximity_lines: 1
+        proximity_lines_below: 30
+        # The handler body ends where the next route begins.
+        stop_at: '^\s*@\w+(?:\.\w+)*\.(?:route|get|post|put|patch|delete)\s*\(|^\s*(?:app|router|api)\.(?:get|post|put|patch|delete|use)\s*\('
+        any_of:
+          - '\b(?:logger|logging|log|audit|audit_log|auditLog|winston|pino)\.\w+\s*\('
+          - '\b(?:app|current_app|request)\.log(?:ger)?\.\w+\s*\('
+          - '\bconsole\.(?:log|info|warn|error)\s*\('
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Log every login success and failure, registration and password reset
+      with the account identifier, source IP and outcome -- never the
+      password or token. Failed logins in particular are what an alert on
+      credential stuffing is built from.
+
+  - id: LOG-003
+    name: Secrets not written to logs
+    severity: high
+    cwe: CWE-532
+    owasp: A09:2021
+    description: >
+      A log line carrying a password, token or key copies that credential to
+      every place logs go, which is usually far more places than the
+      database.
+    applies_to:
+      index_buckets: [source, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        flags: [ignorecase]
+        any_of:
+          # A credential interpolated into, or passed as an argument to, a log
+          # call. A message that only names the word ("invalid password") is
+          # prose and does not match. Names like token_id or password_reset are
+          # identifiers of something else and are skipped by the lookahead.
+          - '\b(?:logger|logging|log|console|app\.logger|current_app\.logger)\.\w+\s*\(.*(?:\{[^}]*|[,+%]\s*(?:\w+\.)*)(?:password|passwd|secret|token|api_?key)(?!_?(?:id|type|count|expir\w*|length|len|name|reset|hash\w*|url)\b)\w*'
+          - '\b(?:logger|logging|log|console)\.\w+\s*\(.*\b(?:req\.body|request\.form|request\.json|request\.get_json\(\))\s*[,)]'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Log the account identifier and the outcome, never the credential or the
+      whole request body. Add a redaction filter to the logger so a field
+      called password, token or secret is masked even when someone logs it by
+      mistake.
+
+  - id: LOG-004
+    name: Central error handler registered
+    severity: medium
+    cwe: CWE-755
+    owasp: A09:2021
+    description: >
+      One error handler decides what every unexpected failure returns and
+      logs. Without it each route fails in its own way, and the framework's
+      default page is often the verbose one.
+    rationale: >
+      Only Node frameworks are judged. Express and Koa send the stack trace
+      in their default error response unless NODE_ENV is production, so a
+      missing handler is a leak. Flask, FastAPI and Django already answer an
+      unhandled error with a generic 500 when debug is off, and debug mode
+      is AC-002's job.
+    applies_to:
+      frameworks: [express, koa]
+      index_buckets: [source, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\b(?:app|router)\.use\s*\(\s*(?:async\s*)?(?:function\s*\w*\s*)?\(\s*err\w*\s*,'
+          - '\b(?:app|router)\.use\s*\(\s*\w*[eE]rror\w*\s*\)'
+          - '\bapp\.on\s*\(\s*["'']error["'']'
+    verdict:
+      found: present
+      not_found: absent
+    remediation_hint: >
+      Register one handler for unexpected errors -- a final four-argument
+      middleware in Express, app.on('error') plus a try/catch middleware in
+      Koa -- that logs the exception with a request id and returns a generic
+      message.
+
+  - id: LOG-005
+    name: Exceptions not silently swallowed
+    severity: low
+    cwe: CWE-390
+    owasp: A09:2021
+    description: >
+      An except or catch block that does nothing hides the failure from the
+      user, the log and the next engineer, including failures that are
+      attacks.
+    applies_to:
+      index_buckets: [source]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: exception handler
+        # The handler line must end at its opening brace or colon (optionally
+        # with an empty body). A one-line handler with a body, such as
+        # catch (e) { return null; }, cannot be empty, and judging the line
+        # after it would read the enclosing function's closing brace.
+        pattern: '^\s*except\b[^:]*:\s*(?:pass\s*)?(?:#.*)?$|\bcatch\s*(?:\(\s*\w*\s*\))?\s*\{\s*\}?\s*$'
+      guards:
+        - type: regex
+          mode: forbid
+          description: handled
+          scope: same_line
+          any_of:
+            - '\bexcept\b[^:]*:\s*pass\b'
+            - '\bcatch\s*(?:\(\s*\w*\s*\))?\s*\{\s*\}'
+        - type: regex
+          mode: forbid
+          description: handled
+          scope: proximity
+          proximity_lines: 1
+          proximity_lines_below: 1
+          any_of:
+            - '^\s*(?:pass|\})\s*$'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Handle the exception or let it propagate. If ignoring it really is
+      right, log it at debug level and say why in a comment, so the decision
+      is visible.

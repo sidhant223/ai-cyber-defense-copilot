@@ -86,7 +86,7 @@ SCREENS.guide = () => {
         <span class="mute small">Nothing in the project needs this control.</span>
       </div>
     </div>
-    <span class="xs mute">A clean report means none of the 28 checks found a gap. It is not proof that the project is secure.</span>
+    <span class="xs mute">A clean report means none of the ${nControls()} checks found a gap. It is not proof that the project is secure.</span>
   </section>
 
   <section class="panel stack g12">

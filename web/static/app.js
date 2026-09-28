@@ -17,8 +17,10 @@ const SCREENS = {};
 const TITLES = { guide: 'Guide', home: 'Home', scan: 'Scan', report: 'Posture report', routes: 'Route inventory',
   accepted: 'Accepted findings', rules: 'Controls', eval: 'Evaluation', how: 'How it works' };
 const CATS = [['authentication', 'Authentication'], ['input_validation', 'Input validation'],
-  ['rate_limiting', 'Rate limiting'], ['secret_management', 'Secret management'], ['access_control', 'Access control']];
+  ['rate_limiting', 'Rate limiting'], ['secret_management', 'Secret management'], ['access_control', 'Access control'],
+  ['web_security', 'Web security'], ['logging_errors', 'Logging & errors'], ['injection', 'Injection']];
 const CATT = Object.fromEntries(CATS);
+const nControls = () => (S.meta ? S.meta.controls : 43);
 const W = { critical: 5, high: 3, medium: 2, low: 1 };
 const CR = { present: 1, partial: 0.5, absent: 0 };
 const SEVR = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -132,7 +134,7 @@ function sidebar() {
       <span class="brand-mark">${logoMark(26)}</span>
       <div class="brand-text">
         <b>Defense Copilot</b>
-        <span>v${esc(m ? m.version : '0.1.0')} · ${m ? m.controls : '28'} controls</span>
+        <span>v${esc(m ? m.version : '0.1.0')} · ${nControls()} controls</span>
       </div>
     </button>
     <button class="rail-toggle" data-act="toggleRail" aria-label="${S.rail ? 'Expand sidebar' : 'Collapse sidebar'}" title="${S.rail ? 'Expand sidebar' : 'Collapse sidebar'}">
@@ -256,12 +258,8 @@ SCREENS.home = () => {
         </button>`).join('')}
     </div>` : '<p class="mute xs" style="padding:16px">Nothing yet. Scans stay here until the server stops; download a report to keep one.</p>';
 
-  const previewSegs = [
-    'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent',
-    'partial', 'partial',
-    'present', 'present', 'present', 'present', 'present', 'present', 'present',
-    'na', 'na', 'na', 'na', 'na', 'na'
-  ];
+  const previewSegs = [].concat(Array(17).fill('absent'), Array(2).fill('partial'),
+    Array(13).fill('present'), Array(7).fill('na'));
 
   const places = [
     {
@@ -293,7 +291,7 @@ SCREENS.home = () => {
   return `<div class="page w1140">
   <div class="hero-wrap">
     <div class="stack g12 hero">
-      <div class="hero-pill">Static analysis · runs offline · 28 controls</div>
+      <div class="hero-pill">Static analysis · runs offline · ${nControls()} controls</div>
       <h1 class="hero-headline">Which security controls are <span class="hero-hl">missing</span> from your code?</h1>
       <p class="hero-sub">A linter finds bad code that exists. This finds good code that should exist and doesn’t: no auth on a route, no rate limit on a login endpoint, a secret sitting in plaintext.</p>
       <div class="hero-actions">
@@ -312,11 +310,11 @@ SCREENS.home = () => {
             <span class="hero-preview-target">flask-notes-app</span>
           </div>
           <div>
-            <span class="hero-preview-score">46</span>
+            <span class="hero-preview-score">53</span>
             <span class="hero-preview-grade">F</span>
           </div>
         </div>
-        <div class="preview-bar" aria-label="Segmented score bar preview" title="13 absent, 2 partial, 7 present, 6 n/a">
+        <div class="preview-bar" aria-label="Segmented score bar preview" title="17 absent, 2 partial, 13 present, 7 n/a" style="--n:${previewSegs.length}">
           ${previewSegs.map((st, i) => `<span class="preview-seg ${st}" style="--i:${i}"></span>`).join('')}
         </div>
         <div class="hero-preview-findings">
@@ -414,7 +412,7 @@ SCREENS.scan = () => {
         <div class="scan-progress-box stack g12">
           <div class="between" style="align-items:baseline">
             <span class="mono xs" style="color:var(--ink);font-weight:500">Static AST & Control Evaluation</span>
-            <span class="mono xs mute scan-progress-percent">28 controls</span>
+            <span class="mono xs mute scan-progress-percent">${nControls()} controls</span>
           </div>
           <div class="scan-progress-track">
             <div class="scan-progress-bar"></div>
@@ -429,7 +427,7 @@ SCREENS.scan = () => {
           </div>
           <div class="scan-stage-item stage-2">
             <span class="stage-num mono xs">[2/3]</span>
-            <span class="stage-label">Evaluating 28 negative controls across OWASP Top 10 categories</span>
+            <span class="stage-label">Evaluating ${nControls()} controls across ${CATS.length} categories</span>
             <span class="stage-status mono xs">pending</span>
           </div>
           <div class="scan-stage-item stage-3">
@@ -485,7 +483,7 @@ SCREENS.scan = () => {
   return `<div class="page w1100">
   <div class="between" style="align-items:baseline">
     <h1 style="font-size:28px;font-weight:500;margin:0">Scan a Repository</h1>
-    <span class="mono xs mute">28 controls · static AST + regex</span>
+    <span class="mono xs mute">${nControls()} controls · static AST + regex</span>
   </div>
   <div class="scangrid">
     <div class="stack g20" style="min-width:0">
@@ -497,7 +495,7 @@ SCREENS.scan = () => {
       <div class="stack g8">
         <span class="lbl">Scope · changes what is scored</span>
         <div class="row g6">${CATS.map(([c, t]) => `<button class="scopechip ${S.scope.includes(c) ? 'on' : ''}" data-act="scope" data-v="${c}" aria-pressed="${S.scope.includes(c)}">${t}</button>`).join('')}</div>
-        <span class="xs mute">${S.scope.length ? `Grade withheld: ${S.scope.length} of 5 categories.` : 'Empty means all five, or the project .copilot.yaml. Narrowing withholds the grade.'}</span>
+        <span class="xs mute">${S.scope.length ? `Grade withheld: ${S.scope.length} of ${CATS.length} categories.` : `Empty means all ${CATS.length}, or the project .copilot.yaml. Narrowing withholds the grade.`}</span>
         ${check(S.useConfig, 'useConfig', 'Apply the project .copilot.yaml')}
       </div>
       <div class="stack g8">

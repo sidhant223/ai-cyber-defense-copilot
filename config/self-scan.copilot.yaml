@@ -23,8 +23,8 @@ ignore_paths:
   - "build_visual_report.py"
   - "*.pdf"
 
-# Three findings on the tool's own source, accepted with reasons rather than
-# excluded quietly. Both are the documented cost of matching lines with
+# Six findings on the tool's own source, accepted with reasons rather than
+# excluded quietly. Most are the documented cost of matching lines with
 # regexes instead of parsing them.
 suppress:
   - control: AC-004
@@ -45,3 +45,20 @@ suppress:
       ScanError text -- never exception detail or stack traces -- and client
       code displaying an error is not a server response leaking one. Regex
       cannot tell client from server code.
+  - control: INJ-005
+    reason: >
+      The UI renders each screen with app.innerHTML, and every piece of
+      repo-derived text goes through esc() first (a rule in CLAUDE.md and the
+      "HTML escaping of scanned content" guarantee). The sink is deliberate;
+      the escaping is what makes it safe, and regex cannot see that.
+  - control: LOG-002
+    reason: >
+      The two "credential endpoints" are example code inside string literals
+      in web/static/report.js -- the before/after snippet the remediation diff
+      shows -- not routes. The same docstring limit as AC-004 above.
+  - control: LOG-005
+    reason: >
+      The three empty handlers are deliberate: web/server.py ends quietly on
+      Ctrl+C, and the UI ignores localStorage failures because browser
+      storage can throw in private windows and saved history is only a
+      convenience there.
