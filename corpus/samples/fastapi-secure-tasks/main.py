@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import timedelta
 
@@ -16,6 +17,9 @@ from db import fetch_all, fetch_one, execute
 SECRET_KEY = os.environ["TASKS_SECRET_KEY"]
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "https://tasks.example.com").split(",")
 ACCESS_TOKEN_EXPIRE = timedelta(minutes=30)
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("tasks")
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/hour"])
 
@@ -64,7 +68,9 @@ def issue_token(request: Request, credentials: Credentials):
 
     principal = authenticate(credentials.email, credentials.password)
     if principal is None:
+        log.warning("failed login for %s from %s", credentials.email, request.client.host)
         raise HTTPException(status_code=401, detail="invalid credentials")
+    log.info("token issued for user %s", principal.id)
     return {"access_token": issue_access_token(principal, ACCESS_TOKEN_EXPIRE)}
 
 

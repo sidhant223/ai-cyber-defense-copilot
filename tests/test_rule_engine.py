@@ -539,10 +539,11 @@ class TestRuleValidation:
 class TestShippedRuleSet:
     """The rule files that actually ship have to load and be well formed."""
 
-    def test_all_five_categories_load(self, engine):
+    def test_all_eight_categories_load(self, engine):
         assert set(engine.categories) == {
             "authentication", "input_validation", "rate_limiting",
             "secret_management", "access_control",
+            "web_security", "logging_errors", "injection",
         }
 
     def test_every_control_has_a_remediation_hint(self, engine):
@@ -573,7 +574,8 @@ class TestShippedRuleSet:
         prefixes = {
             "authentication": "AUTH-", "input_validation": "INPUT-",
             "rate_limiting": "RATE-", "secret_management": "SECRET-",
-            "access_control": "AC-",
+            "access_control": "AC-", "web_security": "WEB-",
+            "logging_errors": "LOG-", "injection": "INJ-",
         }
         for control in engine.controls():
             assert control.id.startswith(prefixes[control.category]), control.id

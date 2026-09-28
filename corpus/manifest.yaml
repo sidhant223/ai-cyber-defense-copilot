@@ -59,7 +59,21 @@ samples:
       AC-003: absent
       AC-004: absent             # /admin/users has login_required but no role check
       AC-006: present          # fixed error strings; debug=True is AC-002's business
-    skipped: [AUTH-002, AUTH-007, AC-005]
+      WEB-003: not_applicable # no redirect to a request-supplied target
+      WEB-004: present        # TLS verification never switched off
+      WEB-005: present        # no csrf_exempt or disabled CSRF setting
+      LOG-003: present        # no credential written to a log
+      INJ-001: present        # no document-store query built from a request object
+      INJ-002: present        # no unsafe deserializer
+      INJ-003: not_applicable # no outbound request built from request input
+      INJ-004: not_applicable # no local file path built from request input
+      INJ-005: present        # no raw-HTML sink
+      WEB-001: absent         # no CSP anywhere
+      WEB-002: absent         # no HSTS
+      LOG-001: absent         # no logger configured
+      LOG-002: absent         # /login and /register log nothing
+      LOG-005: not_applicable # no except blocks
+    skipped: [AUTH-002, AUTH-007, AC-005, LOG-004]
     notes: >
       The interesting case for AUTH-001: authentication was applied to most
       routes and forgotten on two. A binary present/absent scanner would call
@@ -97,6 +111,21 @@ samples:
       AC-003: absent
       AC-004: not_applicable
       AC-006: absent           # error middleware returns err.message and err.stack (app.js:22)
+      WEB-003: not_applicable # no redirect to a request-supplied target
+      WEB-004: present        # TLS verification never switched off
+      WEB-005: present        # no csrf_exempt or disabled CSRF setting
+      LOG-003: present        # no credential written to a log
+      INJ-001: present        # no document-store query built from a request object
+      INJ-002: present        # no unsafe deserializer
+      INJ-003: not_applicable # no outbound request built from request input
+      INJ-004: not_applicable # no local file path built from request input
+      INJ-005: present        # no raw-HTML sink
+      WEB-001: absent         # no helmet, no CSP
+      WEB-002: absent         # no HSTS
+      LOG-001: absent         # console only, no logger
+      LOG-002: absent         # /login and /register log nothing
+      LOG-004: present        # four-argument error middleware (app.js:20); what it leaks is AC-006's business
+      LOG-005: present        # the one catch answers 401 (routes/todos.js:15)
     skipped: [AUTH-001, AUTH-007, AC-005]
     notes: >
       The prompt explicitly asked for a .env, and the generated project put a
@@ -135,7 +164,21 @@ samples:
       AC-003: absent
       AC-004: not_applicable
       AC-006: present          # HTTPException details are fixed strings
-    skipped: [AUTH-002, AUTH-007, AC-005]
+      WEB-003: not_applicable # no redirect to a request-supplied target
+      WEB-004: present        # TLS verification never switched off
+      WEB-005: present        # no csrf_exempt or disabled CSRF setting
+      LOG-003: present        # no credential written to a log
+      INJ-001: present        # no document-store query built from a request object
+      INJ-002: present        # no unsafe deserializer
+      INJ-003: not_applicable # no outbound request built from request input
+      INJ-004: not_applicable # no local file path built from request input
+      INJ-005: present        # no raw-HTML sink
+      WEB-001: absent         # no CSP
+      WEB-002: absent         # no HSTS
+      LOG-001: absent         # no logger configured
+      LOG-002: absent         # credential endpoints log nothing
+      LOG-005: not_applicable # no except blocks
+    skipped: [AUTH-002, AUTH-007, AC-005, LOG-004]
     notes: >
       Shows the difference between INPUT-001 and INPUT-002 clearly: Pydantic
       models make body validation not-applicable rather than absent, because
@@ -173,7 +216,21 @@ samples:
       AC-003: absent
       AC-004: not_applicable
       AC-006: present          # fixed error strings only
-    skipped: [AUTH-002, AUTH-007, AC-005]
+      WEB-003: not_applicable # no redirect to a request-supplied target
+      WEB-004: present        # TLS verification never switched off
+      WEB-005: present        # no csrf_exempt or disabled CSRF setting
+      LOG-003: present        # no credential written to a log
+      INJ-001: present        # no document-store query built from a request object
+      INJ-002: present        # no unsafe deserializer
+      INJ-003: not_applicable # no outbound request built from request input
+      INJ-004: not_applicable # uploads go to S3 under generated keys; no local path
+      INJ-005: present        # no raw-HTML sink
+      WEB-001: absent         # no CSP
+      WEB-002: absent         # no HSTS
+      LOG-001: absent         # no logger configured
+      LOG-002: absent         # /signup and /login log nothing
+      LOG-005: not_applicable # no except blocks
+    skipped: [AUTH-002, AUTH-007, AC-005, LOG-004]
     notes: >
       The AWS secret access key in this sample is the canonical documentation
       example value, and is correctly NOT reported by SECRET-001: the rule
@@ -212,6 +269,21 @@ samples:
       AC-003: absent
       AC-004: not_applicable     # see notes
       AC-006: present          # no error handler; fixed error strings
+      WEB-003: not_applicable # no redirect to a request-supplied target
+      WEB-004: present        # TLS verification never switched off
+      WEB-005: present        # no csrf_exempt or disabled CSRF setting
+      LOG-003: present        # no credential written to a log
+      INJ-001: present        # no document-store query built from a request object
+      INJ-002: present        # no unsafe deserializer
+      INJ-003: not_applicable # no outbound request built from request input
+      INJ-004: not_applicable # no local file path built from request input
+      INJ-005: present        # no raw-HTML sink
+      WEB-001: absent         # no helmet, no CSP
+      WEB-002: absent         # no HSTS
+      LOG-001: absent         # console.log on listen only
+      LOG-002: absent         # /login logs nothing
+      LOG-004: absent         # no error middleware; Express default sends the stack outside production
+      LOG-005: not_applicable # no try/catch
     skipped: [AUTH-001, AUTH-007, AC-005]
     notes: >
       Two known limitations are visible here and are recorded deliberately.
@@ -255,7 +327,21 @@ samples:
       AC-004: absent             # moderate_delete_comment has login_required, no staff check
       AC-005: absent             # ALLOWED_HOSTS = ["*"]
       AC-006: present          # responses built from model fields; DEBUG=True is AC-002's business
-    skipped: [AUTH-001, AUTH-002]
+      WEB-003: not_applicable # no redirect to a request-supplied target
+      WEB-004: present        # TLS verification never switched off
+      WEB-005: present        # no csrf_exempt or disabled CSRF setting
+      LOG-003: present        # no credential written to a log
+      INJ-001: present        # no document-store query built from a request object
+      INJ-002: present        # no unsafe deserializer
+      INJ-003: not_applicable # no outbound request built from request input
+      INJ-004: not_applicable # no local file path built from request input
+      INJ-005: present        # no raw-HTML sink
+      WEB-001: absent         # no django-csp settings
+      WEB-002: absent         # SECURE_HSTS_SECONDS not set
+      LOG-001: absent         # no LOGGING dict
+      LOG-002: not_applicable # no credential endpoint of its own
+      LOG-005: not_applicable # no except blocks
+    skipped: [AUTH-001, AUTH-002, LOG-004]
     notes: >
       This sample is why AUTH-007 exists. AUTH-001 matches route decorators,
       and Django has none, so every Django project was silently skipped. The
@@ -294,7 +380,21 @@ samples:
       AC-003: present
       AC-004: present
       AC-006: present          # fixed details; the PyJWTError text is dropped
-    skipped: [AUTH-002, AUTH-007, AC-005]
+      WEB-003: not_applicable # no redirect to a request-supplied target
+      WEB-004: present        # TLS verification never switched off
+      WEB-005: present        # no csrf_exempt or disabled CSRF setting
+      LOG-003: present        # no credential written to a log
+      INJ-001: present        # no document-store query built from a request object
+      INJ-002: present        # no unsafe deserializer
+      INJ-003: not_applicable # no outbound request built from request input
+      INJ-004: not_applicable # no local file path built from request input
+      INJ-005: present        # no raw-HTML sink
+      WEB-001: present        # header set in security_headers middleware
+      WEB-002: present        # header set in security_headers middleware
+      LOG-001: present        # logging.basicConfig at startup
+      LOG-002: present        # /auth/token logs failure and success
+      LOG-005: present        # both excepts return or re-raise (auth.py:39,58)
+    skipped: [AUTH-002, AUTH-007, AC-005, LOG-004]
     expected_score: 100
     notes: >
       Negative control. Zero gaps, so the whole report is green. A scanner
@@ -332,6 +432,21 @@ samples:
       AC-003: present
       AC-004: present
       AC-006: present          # global handler returns a fixed 'internal error'
+      WEB-003: not_applicable # no redirect to a request-supplied target
+      WEB-004: present        # TLS verification never switched off
+      WEB-005: present        # no csrf_exempt or disabled CSRF setting
+      LOG-003: present        # no credential written to a log
+      INJ-001: present        # no document-store query built from a request object
+      INJ-002: present        # no unsafe deserializer
+      INJ-003: not_applicable # no outbound request built from request input
+      INJ-004: not_applicable # no local file path built from request input
+      INJ-005: present        # no raw-HTML sink
+      WEB-001: present        # helmet() defaults include a CSP
+      WEB-002: present        # helmet() sends HSTS
+      LOG-001: absent         # console.error in the error handler, no logger
+      LOG-002: absent         # /login and /register log nothing
+      LOG-004: present        # global error middleware (app.js:51)
+      LOG-005: not_applicable # no try/catch
     skipped: [AUTH-001, AUTH-007, AC-005]
     notes: >
       Second negative control, and not a perfect score. routes/admin.js reads

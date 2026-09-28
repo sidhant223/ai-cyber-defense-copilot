@@ -1,0 +1,172 @@
+# Executable examples for logging_errors.yaml. See authentication.yaml in this
+# directory for what these are and how they run.
+
+LOG-001:
+  - name: python logging configured
+    expect: present
+    files:
+      requirements.txt: flask==3.0.0
+      app.py: |
+        import logging
+        from flask import Flask
+        logging.basicConfig(level=logging.INFO)
+        app = Flask(__name__)
+
+  - name: express app with winston
+    expect: present
+    files:
+      package.json: '{"dependencies": {"express": "^4.18.0", "winston": "^3.0.0"}}'
+      app.js: |
+        const express = require('express');
+        const winston = require('winston');
+        const app = express();
+
+  - name: print statements only
+    expect: absent
+    files:
+      requirements.txt: flask==3.0.0
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+        print("starting")
+
+LOG-002:
+  - name: login logs the outcome
+    expect: present
+    files:
+      app.py: |
+        import logging
+        from flask import Flask, request
+        app = Flask(__name__)
+        log = logging.getLogger(__name__)
+
+        @app.route("/login", methods=["POST"])
+        def login():
+            user = request.form["email"]
+            log.info("login attempt for %s", user)
+            return "ok"
+
+  - name: login and register, only one logged
+    expect: partial
+    files:
+      routes.js: |
+        const router = require('express').Router();
+
+        router.post('/login', (req, res) => {
+          console.warn('login attempt', req.ip);
+          res.json({ ok: true });
+        });
+
+        router.post('/register', (req, res) => {
+          res.json({ ok: true });
+        });
+
+  - name: login with no log line
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, request
+        app = Flask(__name__)
+
+        @app.route("/login", methods=["POST"])
+        def login():
+            return "ok"
+
+        @app.route("/notes")
+        def notes():
+            app.logger.info("listing notes")
+            return []
+
+LOG-003:
+  - name: logs the account, not the credential
+    expect: present
+    files:
+      app.py: |
+        import logging
+        log = logging.getLogger(__name__)
+        log.warning("invalid password for %s", email)
+        log.info("issued token_id %s", token_id)
+
+  - name: password interpolated into a log line
+    expect: absent
+    files:
+      app.py: |
+        import logging
+        log = logging.getLogger(__name__)
+        log.info(f"login {email} with {password}")
+
+  - name: whole request body logged
+    expect: absent
+    files:
+      routes.js: |
+        router.post('/register', (req, res) => {
+          console.log('register', req.body);
+        });
+
+LOG-004:
+  - name: express error middleware
+    expect: present
+    files:
+      package.json: '{"dependencies": {"express": "^4.18.0"}}'
+      app.js: |
+        const express = require('express');
+        const app = express();
+        app.use((err, req, res, next) => res.status(500).json({ error: 'internal' }));
+
+  - name: express app with no handler
+    expect: absent
+    files:
+      package.json: '{"dependencies": {"express": "^4.18.0"}}'
+      app.js: |
+        const express = require('express');
+        const app = express();
+        app.get('/', (req, res) => res.send('ok'));
+
+  - name: python frameworks answer with a generic 500 themselves
+    expect: skipped
+    files:
+      requirements.txt: fastapi==0.110.0
+      main.py: |
+        from fastapi import FastAPI
+        app = FastAPI()
+
+LOG-005:
+  - name: exceptions handled
+    expect: present
+    files:
+      worker.py: |
+        import logging
+        log = logging.getLogger(__name__)
+        try:
+            run()
+        except ValueError as exc:
+            log.warning("bad input: %s", exc)
+
+  - name: one of two handlers swallows
+    expect: partial
+    files:
+      worker.py: |
+        try:
+            run()
+        except ValueError:
+            raise
+        try:
+            cleanup()
+        except Exception:
+            pass
+
+  - name: one-line handler with a body is not judged
+    expect: not_applicable
+    files:
+      store.js: |
+        function load(k) {
+          try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; }
+        }
+
+  - name: empty catch block
+    expect: absent
+    files:
+      worker.js: |
+        try {
+          run();
+        } catch (e) {}

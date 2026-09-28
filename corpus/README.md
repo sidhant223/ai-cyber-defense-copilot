@@ -170,7 +170,7 @@ corpus/
 1. Write the prompt first and save it as `PROMPT.md`. Do not mention security.
 2. Generate the app. Do not edit it afterwards, even to fix bugs -- the point
    is what the tool produced.
-3. Audit it by hand against all five categories. Read the code.
+3. Audit it by hand against every category. Read the code.
 4. Add an entry to `manifest.yaml` with a status for every control you judged,
    a `skipped` list for the ones that do not apply, and a `split`. A new
    sample is a holdout unless you intend to tune rules on it; label it before

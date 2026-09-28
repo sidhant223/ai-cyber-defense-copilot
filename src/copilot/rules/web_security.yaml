@@ -1,0 +1,204 @@
+category: web_security
+description: >
+  Checks the browser-facing protections that AC-003 only samples: a
+  Content-Security-Policy and HSTS specifically, redirects that cannot be
+  pointed off-site, outbound TLS that still verifies certificates, and CSRF
+  protection that has not been switched off for convenience.
+
+controls:
+  - id: WEB-001
+    name: Content-Security-Policy defined
+    severity: medium
+    cwe: CWE-693
+    owasp: A05:2021
+    confidence: medium   # middleware defaults count; a CSP set by a proxy is invisible
+    description: >
+      A Content-Security-Policy is the header that limits what a successful
+      XSS can do. AC-003 passes on any one security header; this asks for the
+      CSP itself.
+    applies_to:
+      frameworks: [flask, fastapi, django, express, nextjs, koa, nestjs, starlette]
+      index_buckets: [source, config, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'Content-Security-Policy'
+          - '\bcontentSecurityPolicy\b'
+          - '\bhelmet\s*\('                      # helmet() sets a CSP by default
+          - '\bTalisman\s*\('                    # so does Talisman
+          - 'CSP_DEFAULT_SRC|CONTENT_SECURITY_POLICY\s*=|csp\.middleware'
+        none_of:
+          - 'contentSecurityPolicy\s*:\s*false'
+          - 'content_security_policy\s*=\s*(?:None|False)'
+    verdict:
+      found: present
+      not_found: absent
+    remediation_hint: >
+      Set a policy in middleware: helmet for Express, Talisman for Flask,
+      django-csp for Django. Start from default-src 'self', ship it as
+      Content-Security-Policy-Report-Only first, and tighten it once the
+      reports are quiet.
+
+  - id: WEB-002
+    name: HSTS enabled
+    severity: medium
+    cwe: CWE-319
+    owasp: A02:2021
+    confidence: medium   # HSTS is often set by the proxy, which a code scan cannot see
+    description: >
+      Strict-Transport-Security tells the browser never to talk to the site
+      over plain HTTP, which closes the downgrade window on the first request.
+    applies_to:
+      frameworks: [flask, fastapi, django, express, nextjs, koa, nestjs, starlette]
+      index_buckets: [source, config, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - 'Strict-Transport-Security'
+          - '\bhelmet\s*\('                      # helmet() sends HSTS by default
+          - '\bTalisman\s*\('
+          - 'SECURE_HSTS_SECONDS\s*=\s*[1-9]'
+          - '\bhsts\s*(?:\(|:\s*\{)'
+        none_of:
+          - '\bhsts\s*:\s*false'
+          - 'strict_transport_security\s*=\s*False'
+    verdict:
+      found: present
+      not_found: absent
+    remediation_hint: >
+      Send Strict-Transport-Security with a max-age of at least six months
+      (helmet and Talisman do by default; Django needs SECURE_HSTS_SECONDS).
+      If a reverse proxy already sets it, accept this control in
+      .copilot.yaml with that as the reason.
+
+  - id: WEB-003
+    name: No open redirects
+    severity: medium
+    cwe: CWE-601
+    owasp: A01:2021
+    description: >
+      A redirect whose target comes from the request can send a user from a
+      trusted link to any site, which is how most login-page phishing works.
+    applies_to:
+      index_buckets: [source, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: redirect to a request-supplied target
+        pattern: '\bredirect\s*\([^)\n]*(?:request\.(?:args|form|values|GET|POST|query_params)|req\.(?:query|body|params)|\bnext\w*\b)'
+        exclude:
+          - 'url_for\s*\(|reverse\s*\('         # next= passed as an argument, not the target
+      guard:
+        type: regex
+        description: checked against an allowlist or kept on-site
+        scope: proximity
+        proximity_lines: 6
+        # Stay inside this handler: stop at its def, decorator or route call.
+        stop_at: '^\s*(?:async\s+)?def\s|^\s*@\w|\b(?:app|router)\.(?:get|post|put|patch|delete|all)\s*\('
+        any_of:
+          - 'url_has_allowed_host_and_scheme|is_safe_url|is_safe_redirect|safe_redirect|isSafeRedirect'
+          - 'urlparse\s*\(|urlsplit\s*\(|new URL\s*\('
+          - 'startswith\s*\(\s*["'']/["'']|startsWith\s*\(\s*["'']/["'']'
+          - 'ALLOWED_REDIRECT|allowed_redirect|REDIRECT_ALLOWLIST'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Only follow a redirect target that is a relative path on this site, or
+      whose host is on an explicit allowlist: Django's
+      url_has_allowed_host_and_scheme, or urlparse and compare the netloc.
+      Fall back to a fixed page when the check fails.
+
+  - id: WEB-004
+    name: Outbound TLS verification not disabled
+    severity: high
+    cwe: CWE-295
+    owasp: A02:2021
+    confidence: high   # these are the literal off switches
+    description: >
+      Turning off certificate verification makes every outbound HTTPS call
+      readable and forgeable by anyone on the network path.
+    applies_to:
+      index_buckets: [source, config, entrypoint]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bverify\s*=\s*False\b'
+          - '\brejectUnauthorized\s*:\s*false\b'
+          - 'NODE_TLS_REJECT_UNAUTHORIZED\W+0'
+          - '\b_create_unverified_context\b'
+          - '\bCERT_NONE\b'
+          - '\bcheck_hostname\s*=\s*False\b'
+        none_of:
+          - '#\s*nosec|//\s*nosec'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Remove the switch. If the other side uses a private CA, point the client
+      at that CA bundle (verify="/path/ca.pem", NODE_EXTRA_CA_CERTS) instead
+      of disabling verification.
+
+  - id: WEB-005
+    name: CSRF protection not switched off
+    severity: medium
+    cwe: CWE-352
+    owasp: A01:2021
+    description: >
+      AUTH-008 asks whether a CSRF defence exists. This asks whether it was
+      then turned off, globally or per view, which is the usual fix for a
+      form that "stopped working".
+    applies_to:
+      index_buckets: [source, config, entrypoint, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '@csrf_exempt\b'
+          - '@csrf\.exempt\b'
+          - 'WTF_CSRF_ENABLED["'']?\s*[:=]\s*False'
+          - 'WTF_CSRF_CHECK_DEFAULT["'']?\s*[:=]\s*False'
+          - '\bCSRF_ENABLED["'']?\s*[:=]\s*False'
+          - '\bcsrf\s*:\s*false\b'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Send the CSRF token from the form or fetch instead of exempting the
+      view. A genuine exception -- a signed webhook, say -- should verify its
+      own signature and be accepted with an inline suppression that says so.

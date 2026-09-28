@@ -126,7 +126,7 @@ class TestCli:
         full = json.loads(capsys.readouterr().out)
         main(["scan", VULNERABLE, "--format", "json", "--min-confidence", "high"])
         filtered = json.loads(capsys.readouterr().out)
-        assert full["summary"]["posture_score"] == filtered["summary"]["posture_score"] == 46
+        assert full["summary"]["posture_score"] == filtered["summary"]["posture_score"] == 53
 
     def test_json_carries_confidence_and_new_schema(self, capsys):
         main(["scan", VULNERABLE, "--format", "json"])

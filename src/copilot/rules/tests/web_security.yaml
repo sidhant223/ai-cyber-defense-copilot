@@ -1,0 +1,143 @@
+# Executable examples for web_security.yaml. See authentication.yaml in this
+# directory for what these are and how they run.
+
+WEB-001:
+  - name: helmet sets a CSP by default
+    expect: present
+    files:
+      package.json: '{"dependencies": {"express": "^4.18.0", "helmet": "^7.0.0"}}'
+      app.js: |
+        const express = require('express');
+        const helmet = require('helmet');
+        const app = express();
+        app.use(helmet());
+
+  - name: helmet with the CSP switched off
+    expect: absent
+    files:
+      package.json: '{"dependencies": {"express": "^4.18.0", "helmet": "^7.0.0"}}'
+      app.js: |
+        const express = require('express');
+        const helmet = require('helmet');
+        const app = express();
+        app.use(helmet({ contentSecurityPolicy: false }));
+
+  - name: flask app with no policy
+    expect: absent
+    files:
+      requirements.txt: flask==3.0.0
+      app.py: |
+        from flask import Flask
+        app = Flask(__name__)
+
+  - name: not a web framework project
+    expect: skipped
+    files:
+      tool.py: |
+        print("hello")
+
+WEB-002:
+  - name: django HSTS configured
+    expect: present
+    files:
+      requirements.txt: django==5.0
+      manage.py: |
+        import django
+      settings.py: |
+        SECURE_HSTS_SECONDS = 31536000
+        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+
+  - name: django HSTS left at zero
+    expect: absent
+    files:
+      requirements.txt: django==5.0
+      manage.py: |
+        import django
+      settings.py: |
+        SECURE_HSTS_SECONDS = 0
+
+WEB-003:
+  - name: redirect target checked
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask, redirect, request
+        from urllib.parse import urlparse
+        app = Flask(__name__)
+
+        @app.route("/go")
+        def go():
+            next_url = request.args.get("next", "/")
+            if urlparse(next_url).netloc:
+                next_url = "/"
+            return redirect(next_url)
+
+  - name: redirect straight to the next parameter
+    expect: absent
+    files:
+      app.py: |
+        from flask import Flask, redirect, request
+        app = Flask(__name__)
+
+        @app.route("/login", methods=["POST"])
+        def login():
+            return redirect(request.args.get("next"))
+
+  - name: next passed to url_for is not a target
+    expect: not_applicable
+    files:
+      app.py: |
+        from flask import Flask, redirect, request, url_for
+        app = Flask(__name__)
+
+        @app.route("/private")
+        def private():
+            return redirect(url_for("login", next=request.path))
+
+WEB-004:
+  - name: verification left on
+    expect: present
+    files:
+      client.py: |
+        import requests
+        requests.get("https://api.example.com", timeout=5)
+
+  - name: requests with verify=False
+    expect: absent
+    files:
+      client.py: |
+        import requests
+        requests.get("https://api.example.com", verify=False)
+
+  - name: node agent that accepts any certificate
+    expect: absent
+    files:
+      client.js: |
+        const https = require('https');
+        const agent = new https.Agent({ rejectUnauthorized: false });
+
+WEB-005:
+  - name: csrf left on
+    expect: present
+    files:
+      app.py: |
+        from flask import Flask
+        from flask_wtf.csrf import CSRFProtect
+        app = Flask(__name__)
+        CSRFProtect(app)
+
+  - name: django view exempted
+    expect: absent
+    files:
+      views.py: |
+        from django.views.decorators.csrf import csrf_exempt
+
+        @csrf_exempt
+        def update_profile(request):
+            pass
+
+  - name: flask-wtf switched off in config
+    expect: absent
+    files:
+      config.py: |
+        WTF_CSRF_ENABLED = False

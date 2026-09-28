@@ -1,0 +1,203 @@
+category: injection
+description: >
+  Injection paths that INPUT-002 (SQL) and INPUT-004 (shell, eval, pickle)
+  do not cover: NoSQL operator injection, the remaining unsafe deserializers,
+  server-side request forgery, path traversal, and user input rendered as raw
+  HTML. Request-derived input is recognised on the line where it is used; the
+  engine has no dataflow, so a value copied into a variable first is missed.
+
+controls:
+  - id: INJ-001
+    name: No NoSQL operator injection
+    severity: high
+    cwe: CWE-943
+    owasp: A03:2021
+    description: >
+      Passing a request object straight into a Mongo-style query lets the
+      client send operators such as {"$ne": null} instead of values, which
+      is how a password check is bypassed.
+    applies_to:
+      index_buckets: [source, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\.(?:find|findOne|find_one|findOneAndUpdate|findOneAndDelete|updateOne|updateMany|update_one|update_many|deleteOne|deleteMany|delete_one|delete_many|countDocuments|count_documents)\s*\(\s*(?:req\.(?:body|query|params)|request\.(?:json|get_json\(\)|args|form))\s*[,)]'
+          - '["'']\$where["'']\s*:'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Build the query from named, type-checked fields -- {email:
+      String(req.body.email)} -- rather than passing the request object
+      through. mongo-sanitize or express-mongo-sanitize strips $-prefixed keys
+      as a second line of defence. Never use $where.
+
+  - id: INJ-002
+    name: No unsafe deserializers
+    severity: critical
+    cwe: CWE-502
+    owasp: A08:2021
+    confidence: high   # each of these can execute code while loading
+    description: >
+      These loaders can run code while they rebuild an object. INPUT-004
+      covers pickle.loads and a bare yaml.load; this covers the rest of the
+      family.
+    applies_to:
+      index_buckets: [source]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\bpickle\.load\s*\(|\b(?:cPickle|_pickle|dill|cloudpickle)\.loads?\s*\('
+          - '\bmarshal\.loads?\s*\('
+          - '\bjoblib\.load\s*\(|\b(?:pd|pandas)\.read_pickle\s*\('
+          - '\bshelve\.open\s*\('
+          - '\bjsonpickle\.decode\s*\('
+          - '\byaml\.unsafe_load\s*\(|\bLoader\s*=\s*(?:yaml\.)?(?:Unsafe|Full)?Loader\b'
+          - 'require\s*\(\s*["''](?:node-serialize|serialize-to-js|funcster)["'']\s*\)'
+          - '\bunserialize\s*\('
+        none_of:
+          - '#\s*nosec|//\s*nosec'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Exchange data as JSON and validate it against a schema. For YAML use
+      yaml.safe_load. If a pickle-family format is unavoidable, only load
+      files this service wrote itself, and sign them so a swapped file is
+      rejected.
+
+  - id: INJ-003
+    name: Outbound requests not built from request input
+    severity: high
+    cwe: CWE-918
+    owasp: A10:2021
+    description: >
+      A server that fetches a URL the client chose can be pointed at internal
+      services and cloud metadata endpoints (SSRF).
+    applies_to:
+      index_buckets: [source, routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: outbound request to a request-supplied URL
+        pattern: '(?:\b(?:requests|httpx|session|client)\.(?:get|post|put|delete|patch|head|request)|\burlopen|\bfetch|\baxios(?:\.\w+)?|\bgot(?:\.\w+)?|\bhttps?\.get)\s*\([^\n]*(?:request\.(?:args|form|json|values|get_json|query_params|GET|POST)|req\.(?:query|body|params))'
+      guard:
+        type: regex
+        description: checked against an allowlist
+        scope: proximity
+        proximity_lines: 8
+        # Stay inside this handler: stop at its def, decorator or route call.
+        stop_at: '^\s*(?:async\s+)?def\s|^\s*@\w|\b(?:app|router)\.(?:get|post|put|patch|delete|all)\s*\('
+        any_of:
+          - 'ALLOWED_(?:HOSTS|DOMAINS|URLS)|allowlist|allow_list|whitelist'
+          - 'urlparse\s*\(.*\.(?:hostname|netloc)|new URL\s*\(.*\)\.(?:hostname|host)\b'
+          - 'is_?[Aa]llowed_?[Uu]rl|isSafeUrl|is_safe_url|validate_?[Uu]rl|validateUrl'
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Resolve the host and allow only an explicit list of hosts and schemes.
+      Reject private, loopback and link-local addresses after DNS resolution
+      as well, and never forward the response body unfiltered.
+
+  - id: INJ-004
+    name: File paths not built from request input
+    severity: high
+    cwe: CWE-22
+    owasp: A01:2021
+    description: >
+      A file path built from a request parameter or a client-supplied filename
+      can climb out of its directory with ../ and read or overwrite any file
+      the process can reach.
+    applies_to:
+      index_buckets: [routes]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: subject_guard
+      subject:
+        type: regex
+        description: file path from request input
+        pattern: '(?:\bopen\s*\(|\bsend_file\s*\(|\bsendFile\s*\(|\bres\.download\s*\(|\bfs\.(?:readFile|readFileSync|createReadStream|writeFile|writeFileSync|unlink|unlinkSync)\s*\(|\bos\.path\.join\s*\(|\bpath\.(?:join|resolve)\s*\()[^\n]*(?:request\.(?:args|form|json|values|view_args|query_params|GET|POST)|req\.(?:query|body|params)|\.filename\b|\.originalname\b)'
+      guard:
+        type: regex
+        description: confined to its directory
+        scope: proximity
+        proximity_lines: 6
+        # Stay inside this handler: stop at its def, decorator or route call.
+        stop_at: '^\s*(?:async\s+)?def\s|^\s*@\w|\b(?:app|router)\.(?:get|post|put|patch|delete|all)\s*\('
+        any_of:
+          - '\bsecure_filename\s*\(|\bsafe_join\s*\(|\bsend_from_directory\s*\('
+          - '\b(?:os\.)?path\.basename\s*\('
+          - '\brealpath\s*\(|\bis_relative_to\s*\(|\.startswith\s*\(|\.startsWith\s*\('
+    verdict:
+      all_subjects_guarded: present
+      some_subjects_guarded: partial
+      no_subjects_guarded: absent
+      no_subjects_found: not_applicable
+    remediation_hint: >
+      Never build a path from the client's filename or parameter. Use
+      secure_filename or path.basename, or better, generate the stored name
+      yourself; then resolve the final path and check it is still inside the
+      intended directory before opening it.
+
+  - id: INJ-005
+    name: User input not rendered as raw HTML
+    severity: high
+    cwe: CWE-79
+    owasp: A03:2021
+    description: >
+      Template engines escape by default. These are the ways that escaping
+      gets bypassed or switched off, each one a cross-site scripting sink.
+    applies_to:
+      languages: [python, javascript, typescript, markup]
+      exclude_patterns:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*.test.js"
+        - "**/*.spec.ts"
+    detection:
+      mode: presence
+      patterns:
+        match: content
+        any_of:
+          - '\brender_template_string\s*\(\s*(?:f["'']|[^)\n]*request\.)'
+          - '\b(?:Markup|mark_safe)\s*\(\s*(?:f["'']|[^)\n]*request\.)'
+          - '\bautoescape\s*=\s*False\b|\{%-?\s*autoescape\s+(?:off|false)\b'
+          - '\bdangerouslySetInnerHTML\b|\bv-html\s*='
+          - '\.(?:innerHTML|outerHTML)\s*=(?!=)|\bdocument\.write\s*\('
+          - '\bres\.send\s*\([^)\n]*req\.(?:query|params|body)'
+          - '<%-\s*(?!include\b)|\{\{\{\s*\w'
+    verdict:
+      found: absent
+      not_found: present
+    remediation_hint: >
+      Let the template engine escape: pass values to a template file instead
+      of building HTML strings, set textContent instead of innerHTML, and
+      reserve Markup / dangerouslySetInnerHTML for HTML you generated and
+      sanitised yourself (DOMPurify, bleach).

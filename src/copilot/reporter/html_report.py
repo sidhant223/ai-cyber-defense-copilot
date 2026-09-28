@@ -21,6 +21,9 @@ CATEGORY_TITLES = {
     "rate_limiting": "Rate limiting",
     "secret_management": "Secret management",
     "access_control": "Access control configuration",
+    "web_security": "Web security",
+    "logging_errors": "Logging & error handling",
+    "injection": "Injection & unsafe code",
 }
 
 

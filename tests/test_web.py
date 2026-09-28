@@ -59,7 +59,7 @@ def _zip_dir(root: Path) -> bytes:
 
 @pytest.mark.parametrize("sample,score,grade,gaps", [
     ("fastapi-secure-tasks", 100, "A", 0),
-    ("flask-notes-app", 46, "F", 15),
+    ("flask-notes-app", 53, "F", 19),
 ])
 def test_full_scope_matches_verified_cli(sample, score, grade, gaps):
     r = scan_service.run(SAMPLES / sample, sample).report
@@ -181,9 +181,9 @@ def test_server_serves_the_app_and_blocks_traversal(base):
 
 def test_server_meta_rules_and_eval(base):
     meta = json.loads(_get(base, "/api/meta")[2])
-    assert meta["controls"] == 28 and len(meta["samples"]) == 8
+    assert meta["controls"] == 43 and len(meta["samples"]) == 8
     flask = next(s for s in meta["samples"] if s["name"] == "flask-notes-app")
-    assert (flask["score"], flask["grade"], flask["gaps"]) == (46, "F", 15)
+    assert (flask["score"], flask["grade"], flask["gaps"]) == (53, "F", 19)
     rules = json.loads(_get(base, "/api/rules")[2])
     assert any(r["id"] == "AUTH-001" and "- id: AUTH-001" in r["yaml"] for r in rules)
     dev = json.loads(_get(base, "/api/eval?split=dev")[2])
@@ -194,8 +194,8 @@ def test_server_meta_rules_and_eval(base):
 def test_server_scan_report_routes_export(base):
     status, rep = _post(base, "/api/scan", {"kind": "sample", "name": "flask-notes-app"})
     assert status == 201
-    assert (rep["summary"]["posture_score"], rep["summary"]["grade"]) == (46, "F")
-    assert sum(f["is_gap"] for f in rep["findings"]) == 15
+    assert (rep["summary"]["posture_score"], rep["summary"]["grade"]) == (53, "F")
+    assert sum(f["is_gap"] for f in rep["findings"]) == 19
     ev = next(f for f in rep["findings"] if f["control_id"] == "INPUT-002")["evidence"][0]
     assert any(n == ev["line_number"] for n, _ in ev["context"])        # real source lines
     assert json.loads(_get(base, "/api/history")[2])[0]["id"] == rep["id"]
@@ -248,7 +248,7 @@ def test_server_refuses_rebinding_and_cross_site_requests(base):
 def test_server_ground_truth_only_for_labelled_samples(base):
     _, rep = _post(base, "/api/scan", {"kind": "sample", "name": "flask-notes-app"})
     truth = json.loads(_get(base, f"/api/truth/{rep['id']}")[2])
-    assert truth["labelled"] and (truth["tp"], truth["fp"], truth["fn"]) == (15, 0, 0)
+    assert truth["labelled"] and (truth["tp"], truth["fp"], truth["fn"]) == (19, 0, 0)
     _, other = _post(base, "/api/scan", {"kind": "folder", "path": str(REPO_ROOT / "src")})
     assert json.loads(_get(base, f"/api/truth/{other['id']}")[2]) == {"labelled": False}
     _, zipped = _post(base, "/api/scan-zip?name=flask-notes-app.zip",
