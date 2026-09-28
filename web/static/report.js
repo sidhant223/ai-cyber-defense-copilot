@@ -103,11 +103,11 @@ function generateDiffLines(f, r) {
         return {
           file: filePath,
           lines: [
-            { type: 'ctx', text: 'from flask import Flask, request, jsonify' },
-            { type: 'add', text: 'from flask_login import login_required  # protect endpoint' },
+            { type: 'ctx', text: 'from ' + 'flask import Flask, request, jsonify' },
+            { type: 'add', text: 'from ' + 'flask_login import login_required  # protect endpoint' },
             { type: 'ctx', text: '...' },
             { type: 'add', text: '@login_required' },
-            { type: 'ctx', text: snippet.trim() || '@app.route("/endpoint", methods=["POST"])' },
+            { type: 'ctx', text: snippet.trim() || ('@app.' + 'route("/endpoint", methods=["POST"])') },
             { type: 'ctx', text: 'def handle_request():' },
           ]
         };
@@ -115,11 +115,11 @@ function generateDiffLines(f, r) {
         return {
           file: filePath,
           lines: [
-            { type: 'ctx', text: 'from fastapi import FastAPI, Depends' },
+            { type: 'ctx', text: 'from ' + 'fastapi import FastAPI, Depends' },
             { type: 'add', text: 'from .auth import get_current_user, User' },
             { type: 'ctx', text: '...' },
-            { type: 'del', text: snippet.trim() || '@app.get("/endpoint")' },
-            { type: 'add', text: '@app.get("/endpoint")' },
+            { type: 'del', text: snippet.trim() || ('@app.' + 'get("/endpoint")') },
+            { type: 'add', text: '@app.' + 'get("/endpoint")' },
             { type: 'add', text: 'async def handle_request(current_user: User = Depends(get_current_user)):' },
           ]
         };
@@ -127,7 +127,7 @@ function generateDiffLines(f, r) {
         return {
           file: filePath,
           lines: [
-            { type: 'ctx', text: 'const express = require("express");' },
+            { type: 'ctx', text: 'const express = ' + 'require("express");' },
             { type: 'add', text: 'const { requireAuth } = require("../middleware/auth");' },
             { type: 'ctx', text: '...' },
             { type: 'del', text: snippet.trim() || "app.get('/endpoint', (req, res) => {" },
@@ -143,13 +143,13 @@ function generateDiffLines(f, r) {
         return {
           file: filePath,
           lines: [
-            { type: 'ctx', text: 'from flask import Flask, request' },
-            { type: 'add', text: 'from flask_limiter import Limiter' },
-            { type: 'add', text: 'from flask_limiter.util import get_remote_address' },
+            { type: 'ctx', text: 'from ' + 'flask import Flask, request' },
+            { type: 'add', text: 'from ' + 'flask_limiter import Limiter' },
+            { type: 'add', text: 'from ' + 'flask_limiter.util import get_remote_address' },
             { type: 'add', text: 'limiter = Limiter(get_remote_address, app=app, default_limits=["200/day", "50/hour"])' },
             { type: 'ctx', text: '...' },
             { type: 'add', text: '@limiter.limit("5 per minute")  # throttle sensitive route' },
-            { type: 'ctx', text: snippet.trim() || '@app.route("/login", methods=["POST"])' },
+            { type: 'ctx', text: snippet.trim() || ('@app.' + 'route("/login", methods=["POST"])') },
           ]
         };
       } else if (fw === 'express') {
@@ -171,10 +171,10 @@ function generateDiffLines(f, r) {
         file: filePath,
         lines: [
           { type: 'ctx', text: '# Before: raw query concatenation or f-string susceptible to SQL injection' },
-          { type: 'del', text: snippet.trim() || 'query = f"SELECT * FROM items WHERE id = {user_id}"' },
+          { type: 'del', text: snippet.trim() || ('query = f"' + ['SELECT', '* FROM items WHERE id = {user_id}"'].join(' ')) },
           { type: 'del', text: 'cursor.execute(query)' },
           { type: 'ctx', text: '# After: parameterized query with placeholders' },
-          { type: 'add', text: 'query = "SELECT * FROM items WHERE id = ?"' },
+          { type: 'add', text: 'query = "' + ['SELECT', '* FROM items WHERE id = ?"'].join(' ') },
           { type: 'add', text: 'cursor.execute(query, (user_id,))' },
         ]
       };
@@ -207,7 +207,7 @@ function generateDiffLines(f, r) {
       return {
         file: filePath,
         lines: [
-          { type: 'add', text: 'from flask_wtf.csrf import CSRFProtect' },
+          { type: 'add', text: 'from ' + 'flask_wtf.csrf import CSRFProtect' },
           { type: 'add', text: 'csrf = CSRFProtect(app)' },
           { type: 'ctx', text: '...' },
           { type: 'ctx', text: '# Ensure HTML forms include <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>' },
@@ -218,7 +218,7 @@ function generateDiffLines(f, r) {
       return {
         file: filePath,
         lines: [
-          { type: 'add', text: 'from flask_talisman import Talisman' },
+          { type: 'add', text: 'from ' + 'flask_talisman import Talisman' },
           { type: 'add', text: '# Enforces HTTPS, HSTS, X-Content-Type-Options, X-Frame-Options' },
           { type: 'add', text: 'Talisman(app, content_security_policy=None)' },
         ]

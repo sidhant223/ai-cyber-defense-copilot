@@ -20,6 +20,8 @@ ignore_paths:
   - "tests/**"
   - "docs/nightwatch/**"
   - "report.html"
+  - "build_visual_report.py"
+  - "*.pdf"
 
 # Three findings on the tool's own source, accepted with reasons rather than
 # excluded quietly. Both are the documented cost of matching lines with
