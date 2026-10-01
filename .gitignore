@@ -51,3 +51,4 @@ copilot-report.json
 # Local report build tools and artifacts
 *.pdf
 build_visual_report.py
+.DS_Store
