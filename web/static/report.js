@@ -468,7 +468,7 @@ SCREENS.report = () => {
   const gapsCount = r.findings.filter(f => f.is_gap).length;
   const satCount = r.findings.filter(f => f.status === 'present').length;
 
-  return `<div class="page w1100">
+  return `<div class="page w1360">
   ${scoreSection(r)}
   <div class="report-filter-bar">
     <input class="filter-search-input mono" data-bind="query" value="${esc(S.query)}" placeholder="Filter by id, name, category, or file (/ to focus)..." aria-label="Filter findings">

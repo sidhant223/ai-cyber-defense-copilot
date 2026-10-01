@@ -4,8 +4,8 @@
 'use strict';
 
 const S = {
-  screen: 'home', theme: store('theme') || 'light', menu: !isNarrow() || store('menu') === 'open',
-  rail: store('rail') === 'true', meta: null, history: [], report: null,
+  screen: 'home', theme: store('theme_choice') || 'light', menu: !isNarrow() || store('menu') === 'open',
+  rail: store('rail') !== 'false', meta: null, history: [], report: null,
   sel: null, minSev: 'all', statusFilter: 'all', fileFilter: 'all', detailTab: 'diff', showSat: false, query: '', reveal: false, showSkipped: false,
   showCalcDetails: false,
   source: 'sample', sample: 'flask-notes-app', path: '', zip: null, scope: [], useConfig: true,
@@ -171,8 +171,13 @@ function topbar() {
     <button class="${S.theme === 'dark' ? 'on' : ''}" data-act="theme" data-v="dark">Dark</button>
   </div>`;
   return `<header class="top">
-    <div class="title"><button class="menu-btn rail-toggle" data-act="menu" aria-label="Open menu" aria-expanded="${S.menu && isNarrow()}"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><b>${TITLES[S.screen]}</b></div>
-    <div class="actions">${dl}${themes}</div>
+    <div class="top-inner">
+      <div class="top-left">
+        <button class="menu-btn" data-act="menu" aria-label="Open menu" aria-expanded="${S.menu && isNarrow()}"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      </div>
+      <div class="title"><b>${TITLES[S.screen]}</b></div>
+      <div class="actions">${dl}${themes}</div>
+    </div>
   </header>`;
 }
 
@@ -203,6 +208,9 @@ function render() {
   if (pageEl) {
     if (isScreenChange) {
       pageEl.classList.add('screen-entering');
+      setTimeout(() => {
+        if (pageEl) pageEl.classList.remove('screen-entering');
+      }, 1000);
     } else {
       pageEl.classList.remove('screen-entering');
     }
@@ -221,42 +229,42 @@ function render() {
 SCREENS.home = () => {
   const r = S.report;
   const gaps = r ? r.findings.filter(f => f.is_gap)
-    .sort((a, b) => SEVR[a.severity] - SEVR[b.severity] || STR[a.status] - STR[b.status] || a.control_id.localeCompare(b.control_id)).slice(0, 5) : [];
+    .sort((a, b) => SEVR[a.severity] - SEVR[b.severity] || STR[a.status] - STR[b.status] || a.control_id.localeCompare(b.control_id)).slice(0, 3) : [];
   const trend = r && r.diff ? `
     <span class="score-trend ${r.diff.scoreDelta > 0 ? 'up' : r.diff.scoreDelta < 0 ? 'down' : 'same'}" title="Previous score: ${r.diff.prevScore}">
       ${r.diff.scoreDelta > 0 ? '▲ +' : r.diff.scoreDelta < 0 ? '▼ ' : '= '}${r.diff.scoreDelta} pts vs prev
     </span>` : '';
   const latest = r ? `
-    <div class="row" style="gap:16px;align-items:baseline">
-      <span class="score-num" style="font-size:64px;color:${scoreColor(r.summary.posture_score)}">${r.summary.posture_score}</span>
+    <div class="row" style="gap:12px;align-items:baseline">
+      <span class="score-num" style="font-size:36px;line-height:1;color:${scoreColor(r.summary.posture_score)}">${r.summary.posture_score}</span>
       <div class="stack g4">
-        <div class="row g8" style="align-items:center"><span class="score-grade" style="font-size:16px">${gradeText(r)}</span>${trend}</div>
-        <span class="mute xs">${plural(gaps.length ? r.findings.filter(f => f.is_gap).length : 0, 'gap')} · ${r.summary.controls_scored} of ${r.summary.controls_evaluated} controls scored</span>
+        <div class="row g8" style="align-items:center"><span class="score-grade" style="font-size:15px">${gradeText(r)}</span>${trend}</div>
+        <span class="mute xs">${plural(r.findings.filter(f => f.is_gap).length, 'gap')} · ${r.summary.controls_scored} of ${r.summary.controls_evaluated} controls</span>
       </div>
     </div>
     ${chips(r)}
-    <div class="stack g4" style="border-top:1px solid var(--line);padding-top:var(--s-12);margin-top:var(--s-8)">
-      <span class="lbl">Fix first</span>
-      ${gaps.map(f => `<button class="listrow" style="grid-template-columns:16px 84px minmax(0,1fr) 60px;padding:8px 0" data-act="open" data-v="${esc(f.control_id)}">
+    <div class="stack g4" style="border-top:1px solid var(--line);padding-top:var(--s-8);margin-top:var(--s-4)">
+      <span class="lbl xs">Top priority gaps</span>
+      ${gaps.map(f => `<button class="listrow" style="grid-template-columns:14px 74px minmax(0,1fr) 56px;padding:6px 0" data-act="open" data-v="${esc(f.control_id)}">
         <span class="status-dot ${f.status}"></span>
         <span class="mono xs mute">${esc(f.control_id)}</span>
-        <span class="clip">${esc(f.control_name)}</span>
+        <span class="clip xs">${esc(f.control_name)}</span>
         <span class="xs mute" style="text-align:right;${f.severity === 'critical' ? 'color:var(--absent);font-weight:500' : ''}">${esc(f.severity)}</span>
-      </button>`).join('') || '<span class="xs mute" style="padding:var(--s-8) 0">No open gaps.</span>'}
-    </div>` : `<p class="mute" style="font-size:13.5px">No scan yet this session. Pick a bundled sample, a folder on this machine, or a .zip.</p>`;
+      </button>`).join('') || '<span class="xs mute" style="padding:var(--s-4) 0">No open gaps.</span>'}
+    </div>` : `<p class="mute xs" style="margin:0;padding:4px 0">No scan yet this session. Pick a bundled sample, a folder on this machine, or a .zip.</p>`;
 
   const recent = S.history.length ? `
     <div class="stack">
-      ${S.history.map(h => `
-        <button class="listrow" style="grid-template-columns:minmax(0,1fr) 70px 40px;padding:10px 16px;${r && h.id === r.id ? 'background:var(--sunk)' : ''}" data-act="load" data-v="${esc(h.id)}">
+      ${S.history.slice(0, 4).map(h => `
+        <button class="listrow" style="grid-template-columns:minmax(0,1fr) 60px 36px;padding:8px 14px;${r && h.id === r.id ? 'background:var(--sunk)' : ''}" data-act="load" data-v="${esc(h.id)}">
           <div class="stack" style="min-width:0">
-            <span class="mono clip" style="font-size:12.5px">${esc(h.source)}</span>
-            <span class="mute xs">${esc(h.framework || 'unknown')} · ${plural(h.gaps, 'gap')} · ${new Date(h.scanned_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            <span class="mono clip xs">${esc(h.source)}</span>
+            <span class="mute xs" style="font-size:11px">${esc(h.framework || 'unknown')} · ${plural(h.gaps, 'gap')} · ${new Date(h.scanned_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
           </div>
-          <div class="bar"><i style="width:${h.score}%;background:${scoreColor(h.score)}"></i></div>
-          <span class="mono" style="font-size:12.5px;font-weight:500;text-align:right;color:${scoreColor(h.score)}">${h.score}</span>
+          <div class="bar" style="height:4px"><i style="width:${h.score}%;background:${scoreColor(h.score)}"></i></div>
+          <span class="mono xs" style="font-weight:500;text-align:right;color:${scoreColor(h.score)}">${h.score}</span>
         </button>`).join('')}
-    </div>` : '<p class="mute xs" style="padding:16px">Nothing yet. Scans stay here until the server stops; download a report to keep one.</p>';
+    </div>` : '<p class="mute xs" style="padding:12px 16px;margin:0">Nothing yet. Scans stay here until the server stops; download a report to keep one.</p>';
 
   const previewSegs = [].concat(Array(18).fill('absent'), Array(2).fill('partial'),
     Array(19).fill('present'), Array(7).fill('na'));
@@ -288,69 +296,132 @@ SCREENS.home = () => {
     }
   ];
 
+  const flaskSample = S.meta && S.meta.samples ? S.meta.samples.find(s => s.name === 'flask-notes-app') : null;
+  const flaskScore = flaskSample ? flaskSample.score : 60;
+  const flaskGrade = flaskSample ? flaskSample.grade : 'D';
+  const flaskGaps = flaskSample ? flaskSample.gaps : 20;
+
   return `<div class="page w1140">
-  <div class="hero-wrap">
-    <div class="stack g12 hero">
-      <div class="hero-pill">Static analysis · runs offline · ${nControls()} controls</div>
-      <h1 class="hero-headline">Which security controls are <span class="hero-hl">missing</span> from your code?</h1>
-      <p class="hero-sub">A linter finds bad code that exists. This finds good code that should exist and doesn’t: no auth on a route, no rate limit on a login endpoint, a secret sitting in plaintext.</p>
-      <div class="hero-actions">
-        <button class="btn primary btn-hero" data-act="go" data-v="scan">New scan <span class="arrow">→</span></button>
-        <button class="btn btn-hero" data-act="go" data-v="report" ${r ? '' : 'disabled'}>Open latest report</button>
-        <button class="btn-text btn-hero-link" data-act="go" data-v="guide">How to use</button>
-      </div>
+  <div class="landing-hero">
+    <div class="landing-eyebrow">
+      <span class="landing-eyebrow-dot"></span>
+      <span class="landing-eyebrow-text">Static analysis · runs offline · ${nControls()} controls</span>
     </div>
-    <div class="hero-preview-container">
-      <div class="hero-dot-bg"></div>
-      <div class="hero-glow"></div>
-      <div class="hero-preview-card" data-act="sample" data-v="flask-notes-app" title="Inspect sample repository: flask-notes-app">
-        <div class="hero-preview-top">
-          <div class="stack g4">
-            <span class="lbl">Live preview</span>
-            <span class="hero-preview-target">flask-notes-app</span>
-          </div>
-          <div>
-            <span class="hero-preview-score">60</span>
-            <span class="hero-preview-grade">D</span>
-          </div>
+    <h1 class="landing-headline">Which security controls are <span class="hero-hl">missing</span> from your code?</h1>
+    <p class="landing-subhead">A linter finds bad code that exists. This finds good code that should exist and doesn’t: no auth on a route, no rate limit on a login endpoint, a secret sitting in plaintext.</p>
+    <div class="landing-actions">
+      <button class="btn primary btn-landing-primary" data-act="go" data-v="scan">Start new scan <span class="arrow">→</span></button>
+      <button class="btn btn-landing-secondary" data-act="go" data-v="report" ${r ? '' : 'disabled'}>${r ? 'Open latest report' : 'Latest report'}</button>
+      <button class="landing-cli-pill" data-act="copyCmd" data-v="copilot scan ." title="Click to copy CLI command">
+        <span class="cli-prompt">$</span>
+        <span class="mono">copilot scan .</span>
+        <span class="cli-copy-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span>Copy</span>
+        </span>
+      </button>
+    </div>
+
+    <div class="landing-showcase">
+      <div class="showcase-header">
+        <div class="showcase-window-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="showcase-title mono">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span>corpus/samples/flask-notes-app</span>
         </div>
+        <div class="showcase-meta">
+          <span class="status-indicator"></span>
+          <span>Sample Audit Preview</span>
+        </div>
+      </div>
+      <div class="showcase-body">
+        <div class="showcase-posture">
+          <div class="showcase-score-group">
+            <span class="showcase-score-val mono">${flaskScore}</span>
+            <span class="showcase-grade-badge mono">${flaskGrade}</span>
+            <div class="showcase-score-context">
+              <span class="showcase-score-label">Security Posture Score</span>
+              <span class="showcase-score-sub">${flaskGaps} open gaps detected across ${nControls()} controls</span>
+            </div>
+          </div>
+          <button class="btn btn-showcase-run" data-act="sample" data-v="flask-notes-app" title="Inspect sample repository: flask-notes-app">
+            <span>Run interactive audit</span>
+            <span class="arrow">→</span>
+          </button>
+        </div>
+
         <div class="preview-bar" aria-label="Segmented score bar preview" title="18 absent, 2 partial, 19 present, 7 n/a" style="--n:${previewSegs.length}">
           ${previewSegs.map((st, i) => `<span class="preview-seg ${st}" style="--i:${i}"></span>`).join('')}
         </div>
-        <div class="hero-preview-findings">
-          <div class="hero-preview-row">
-            <span class="status-dot absent"></span>
-            <span class="clip"><b class="mono xs">AUTH-001</b> No auth on write routes</span>
-            <span class="hero-preview-badge" style="color:var(--absent)">critical</span>
+
+        <div class="showcase-gaps">
+          <div class="showcase-gap-item" data-act="sample" data-v="flask-notes-app" title="Inspect AUTH-001 in flask-notes-app">
+            <span class="showcase-gap-badge absent">critical</span>
+            <div class="showcase-gap-info">
+              <div class="showcase-gap-title"><span class="mono">AUTH-001</span> Missing authentication on write routes</div>
+              <div class="showcase-gap-desc">State-changing endpoint <code>POST /notes</code> accepts requests without session or auth verification.</div>
+            </div>
+            <div class="showcase-gap-arrow">→</div>
           </div>
-          <div class="hero-preview-row">
-            <span class="status-dot absent"></span>
-            <span class="clip"><b class="mono xs">RATE-001</b> No rate limit on login endpoint</span>
-            <span class="hero-preview-badge" style="color:var(--partial)">high</span>
+          <div class="showcase-gap-item" data-act="sample" data-v="flask-notes-app" title="Inspect RATE-001 in flask-notes-app">
+            <span class="showcase-gap-badge partial">high</span>
+            <div class="showcase-gap-info">
+              <div class="showcase-gap-title"><span class="mono">RATE-001</span> No rate limit on login endpoint</div>
+              <div class="showcase-gap-desc">Endpoint <code>POST /login</code> lacks brute-force throttling decorator or rate limiter guard.</div>
+            </div>
+            <div class="showcase-gap-arrow">→</div>
           </div>
-          <div class="hero-preview-row">
-            <span class="status-dot partial"></span>
-            <span class="clip"><b class="mono xs">SEC-002</b> Plaintext credentials in config</span>
-            <span class="hero-preview-badge mute">medium</span>
+          <div class="showcase-gap-item" data-act="sample" data-v="flask-notes-app" title="Inspect SEC-002 in flask-notes-app">
+            <span class="showcase-gap-badge medium">medium</span>
+            <div class="showcase-gap-info">
+              <div class="showcase-gap-title"><span class="mono">SEC-002</span> Plaintext secret in configuration</div>
+              <div class="showcase-gap-desc">Hardcoded credentials detected in source file <code>config.py</code> instead of environment variables.</div>
+            </div>
+            <div class="showcase-gap-arrow">→</div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="grid2s">
-    <section class="panel stack g16">
-      <div class="between"><span class="lbl">Latest scan</span><span class="mono xs mute">${esc(r ? r.source : '')}</span></div>
-      ${latest}
-    </section>
-    <section class="panel flush stack">
-      <div class="between" style="padding:16px;border-bottom:1px solid var(--line)">
-        <span class="lbl">Recent scans</span>
-        ${S.history.length ? '<button class="click-copy xs mute" data-act="clearHistory">Clear history</button>' : '<span class="xs mute">this session</span>'}
+  <section class="home-manifesto">
+    <div class="manifesto-left">
+      <div class="lbl">How it works</div>
+      <h2 class="manifesto-heading">
+        Linters search for bad code that exists.<br>
+        <span style="color:var(--ink2)">This verifies the defenses that should.</span>
+      </h2>
+      <p class="manifesto-desc">
+        Most web exploits don't rely on exotic compiler bugs—they succeed because routine security controls were simply omitted: an API route deployed without auth, a login endpoint without rate limiting, or cookies transmitted without secure flags.
+      </p>
+    </div>
+
+    <div class="manifesto-right">
+      <div class="manifesto-item">
+        <div class="manifesto-num mono">01</div>
+        <div class="manifesto-content">
+          <h3 class="manifesto-title">Negative AST Analysis</h3>
+          <p class="manifesto-text">Instead of regex scanning for known vulnerability signatures, the deterministic AST engine parses your syntax trees for the <strong>absence</strong> of mandatory defensive guards across Flask, FastAPI, Django, and Express.</p>
+        </div>
       </div>
-      ${recent}
-    </section>
-  </div>
+
+      <div class="manifesto-item">
+        <div class="manifesto-num mono">02</div>
+        <div class="manifesto-content">
+          <h3 class="manifesto-title">100% Offline & Private</h3>
+          <p class="manifesto-text">Runs on your local workstation in under 200ms with zero cloud dependencies, zero telemetry, and zero hallucinations. Your proprietary source code never leaves your filesystem.</p>
+        </div>
+      </div>
+
+      <div class="manifesto-item">
+        <div class="manifesto-num mono">03</div>
+        <div class="manifesto-content">
+          <h3 class="manifesto-title">Instant Remediation Diffs</h3>
+          <p class="manifesto-text">Every gap includes an exact unified diff patch and a copy-ready prompt tailored for AI coding assistants, letting you patch vulnerabilities directly in your IDE or CI pipeline.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section class="stack g12">
     <span class="lbl">Same engine, other places</span>
@@ -371,7 +442,21 @@ SCREENS.home = () => {
         </div>
       `).join('')}
     </div>
-  </section></div>`;
+  </section>
+
+  <div class="grid2s home-scans-compact">
+    <section class="panel compact stack g12">
+      <div class="between"><span class="lbl">Latest scan</span><span class="mono xs mute">${esc(r ? r.source : '')}</span></div>
+      ${latest}
+    </section>
+    <section class="panel compact flush stack">
+      <div class="between" style="padding:12px 16px;border-bottom:1px solid var(--line)">
+        <span class="lbl">Recent scans</span>
+        ${S.history.length ? '<button class="click-copy xs mute" data-act="clearHistory">Clear history</button>' : '<span class="xs mute">this session</span>'}
+      </div>
+      ${recent}
+    </section>
+  </div></div>`;
 };
 
 function chips(r, isReport = false) {
@@ -537,9 +622,12 @@ Object.assign(ACTIONS, {
       set({ rail: next });
     }
   },
-  theme: v => { store('theme', v); set({ theme: v }); },
+  theme: v => { store('theme_choice', v); store('theme', v); set({ theme: v }); },
   source: v => set({ source: v, error: null }),
-  sample: v => set({ sample: v, error: null }),
+  sample: v => {
+    set({ sample: v, source: 'sample', error: null });
+    if (S.screen === 'home') navigate('scan');
+  },
   scope: v => set({ scope: S.scope.includes(v) ? S.scope.filter(x => x !== v) : [...S.scope, v] }),
   useConfig: () => set({ useConfig: !S.useConfig }),
   minSev: v => set({ minSev: v }),
